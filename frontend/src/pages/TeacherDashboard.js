@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import Modal from 'react-modal';
 
 export default function TeacherDashboard() {
   const [teacher, setTeacher] = useState({});
@@ -15,6 +16,23 @@ export default function TeacherDashboard() {
   const [resultInputs, setResultInputs] = useState({}); // { student_id: { score, grade } }
   const [resultMsg, setResultMsg] = useState('');
   const [subjects, setSubjects] = useState([]);
+  const [caScores, setCaScores] = useState({});
+  const [examScores, setExamScores] = useState({});
+  const [selectedSubjects, setSelectedSubjects] = useState({});
+  const [manualGrades, setManualGrades] = useState({});
+  const [saveMsg, setSaveMsg] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalStudent, setModalStudent] = useState(null);
+  const [studentResults, setStudentResults] = useState([]);
+  const [modalSubject, setModalSubject] = useState('');
+  const [modalCA, setModalCA] = useState('');
+  const [modalExam, setModalExam] = useState('');
+  const [modalGrade, setModalGrade] = useState('');
+  const [modalMsg, setModalMsg] = useState('');
+  const [showAddSubject, setShowAddSubject] = useState(false);
+  const [newModalSubject, setNewModalSubject] = useState('');
+  const [addSubjectMsg, setAddSubjectMsg] = useState('');
+  const [lastAddedSubject, setLastAddedSubject] = useState('');
 
   useEffect(() => {
     const teacherData = localStorage.getItem('teacher');
@@ -125,6 +143,86 @@ export default function TeacherDashboard() {
     }
   };
 
+  const openStudentModal = async (student) => {
+    setModalStudent(student);
+    setModalOpen(true);
+    // Fetch results for this student for the current class/term/session
+    try {
+      const res = await axios.get(`http://localhost:5000/api/results?student_id=${student.student_id}&class=${selectedClass}&term=${term}&session=${session}`);
+      setStudentResults(res.data);
+    } catch {
+      setStudentResults([]);
+    }
+    setModalSubject('');
+    setModalCA('');
+    setModalExam('');
+    setModalGrade('');
+    setModalMsg('');
+  };
+  const closeStudentModal = () => {
+    setModalOpen(false);
+    setModalStudent(null);
+    setStudentResults([]);
+    setModalSubject('');
+    setModalCA('');
+    setModalExam('');
+    setModalGrade('');
+    setModalMsg('');
+  };
+  const handleAddStudentResult = async () => {
+    if (!modalSubject || !modalCA || !modalExam || !modalGrade) {
+      setModalMsg('All fields are required.');
+      return;
+    }
+    // Prevent duplicate subject for this student/session/class/term
+    if (studentResults.some(r => r.subject === modalSubject)) {
+      setModalMsg('This subject already has a result for this student in this session/term/class.');
+      return;
+    }
+    const total = Number(modalCA) + Number(modalExam);
+    try {
+      await axios.post('http://localhost:5000/api/results/manual', {
+        student_id: modalStudent.student_id,
+        subject: modalSubject,
+        score: total,
+        grade: modalGrade,
+        term,
+        session,
+        class: selectedClass
+      });
+      // Refresh results
+      const res = await axios.get(`http://localhost:5000/api/results?student_id=${modalStudent.student_id}&class=${selectedClass}&term=${term}&session=${session}`);
+      setStudentResults(res.data);
+      setLastAddedSubject(modalSubject);
+      setModalMsg('Result added!');
+    } catch {
+      setModalMsg('Error adding result.');
+    }
+  };
+  const handleAddAnotherSubject = () => {
+    setModalSubject('');
+    setModalCA('');
+    setModalExam('');
+    setModalGrade('');
+    setModalMsg('');
+    setLastAddedSubject('');
+  };
+
+  const handleAddModalSubject = async () => {
+    if (!newModalSubject.trim()) return;
+    try {
+      await axios.post('http://localhost:5000/api/subjects', { name: newModalSubject });
+      const res = await axios.get('http://localhost:5000/api/subjects');
+      setSubjects(res.data);
+      setModalSubject(newModalSubject);
+      setShowAddSubject(false);
+      setNewModalSubject('');
+      setAddSubjectMsg('Subject added!');
+    } catch {
+      setAddSubjectMsg('Error adding subject.');
+    }
+  };
+
   const TERMS = ['1st Term', '2nd Term', '3rd Term'];
   const SESSIONS = ['2023/24', '2024/25', '2025/26'];
 
@@ -155,21 +253,6 @@ export default function TeacherDashboard() {
             <div className="bg-white rounded shadow p-6 mb-8">
               <h3 className="font-bold mb-2 text-green-700">Students in {selectedClass}</h3>
               <div className="flex gap-4 mb-4">
-                <div className="relative">
-                  <input
-                    list="subject-list"
-                    type="text"
-                    placeholder="Subject"
-                    value={subject}
-                    onChange={e => setSubject(e.target.value)}
-                    className="border p-2 rounded w-40"
-                  />
-                  <datalist id="subject-list">
-                    {subjects.map(s => (
-                      <option key={s.id} value={s.name} />
-                    ))}
-                  </datalist>
-                </div>
                 <select value={term} onChange={e => setTerm(e.target.value)} className="border p-2 rounded w-32">
                   <option value="">Select Term</option>
                   {TERMS.map(t => <option key={t} value={t}>{t}</option>)}
@@ -183,44 +266,108 @@ export default function TeacherDashboard() {
                 <thead className="bg-green-200">
                   <tr>
                     <th className="py-2 px-4 text-left text-green-900">Full Name</th>
-                    <th className="py-2 px-4 text-left text-green-900">Student ID</th>
-                    <th className="py-2 px-4 text-left text-green-900">Score</th>
-                    <th className="py-2 px-4 text-left text-green-900">Grade</th>
+                    <th className="py-2 px-4 text-left text-green-900">CA Score</th>
+                    <th className="py-2 px-4 text-left text-green-900">Exam Score</th>
+                    <th className="py-2 px-4 text-left text-green-900">Total</th>
                     <th className="py-2 px-4 text-left text-green-900">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map(s => (
-                    <tr key={s.id}>
-                      <td className="py-2 px-4">{s.fullname}</td>
-                      <td className="py-2 px-4">{s.student_id}</td>
-                      <td className="py-2 px-4">
-                        <input
-                          type="number"
-                          value={resultInputs[s.student_id]?.score || ''}
-                          onChange={e => handleResultInputChange(s.student_id, 'score', e.target.value)}
-                          className="border p-1 rounded w-20"
-                        />
-                      </td>
-                      <td className="py-2 px-4">
-                        <input
-                          type="text"
-                          value={resultInputs[s.student_id]?.grade || ''}
-                          onChange={e => handleResultInputChange(s.student_id, 'grade', e.target.value)}
-                          className="border p-1 rounded w-16"
-                        />
-                      </td>
-                      <td className="py-2 px-4">
-                        <button
-                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
-                          onClick={() => handleResultSubmit(s.student_id)}
-                        >Save</button>
-                      </td>
-                    </tr>
-                  ))}
+                  {students.map(s => {
+                    const ca = caScores[s.student_id] || '';
+                    const exam = examScores[s.student_id] || '';
+                    const total = ca && exam ? Number(ca) + Number(exam) : '';
+                    return (
+                      <tr key={s.id}>
+                        <td className="py-2 px-4">{s.fullname}</td>
+                        <td className="py-2 px-4">
+                          <input
+                            type="number"
+                            value={ca}
+                            onChange={e => setCaScores(prev => ({ ...prev, [s.student_id]: e.target.value }))}
+                            className="border p-1 rounded w-20"
+                          />
+                        </td>
+                        <td className="py-2 px-4">
+                          <input
+                            type="number"
+                            value={exam}
+                            onChange={e => setExamScores(prev => ({ ...prev, [s.student_id]: e.target.value }))}
+                            className="border p-1 rounded w-20"
+                          />
+                        </td>
+                        <td className="py-2 px-4">
+                          <input
+                            type="number"
+                            value={total}
+                            readOnly
+                            className="border p-1 rounded w-20 bg-gray-100"
+                          />
+                        </td>
+                        <td className="py-2 px-4">
+                          <button className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded" onClick={() => openStudentModal(s)}>View/Add Results</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-              {resultMsg && <div className="text-green-700 mt-2">{resultMsg}</div>}
+              <Modal
+                isOpen={modalOpen}
+                onRequestClose={closeStudentModal}
+                contentLabel="Student Results Modal"
+                ariaHideApp={false}
+                className="bg-white rounded shadow p-6 max-w-lg mx-auto mt-20 outline-none"
+                overlayClassName="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center"
+              >
+                <h3 className="font-bold mb-2 text-green-700">Results for {modalStudent?.fullname}</h3>
+                <div className="mb-4">
+                  <table className="min-w-full mb-2">
+                    <thead className="bg-green-200">
+                      <tr>
+                        <th className="py-2 px-4 text-left text-green-900">Subject</th>
+                        <th className="py-2 px-4 text-left text-green-900">Score</th>
+                        <th className="py-2 px-4 text-left text-green-900">Grade</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {studentResults.map(r => (
+                        <tr key={r.id}>
+                          <td className="py-2 px-4">{r.subject}</td>
+                          <td className="py-2 px-4">{r.score}</td>
+                          <td className="py-2 px-4">{r.grade}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mb-4 flex gap-2 flex-wrap">
+                  <select value={modalSubject} onChange={e => setModalSubject(e.target.value)} className="border p-2 rounded w-32">
+                    <option value="">Select Subject</option>
+                    {subjects.map(sub => (
+                      <option key={sub.id + '-' + sub.name} value={sub.name}>{sub.name}</option>
+                    ))}
+                  </select>
+                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded" onClick={() => setShowAddSubject(v => !v)}>+ Add Subject</button>
+                  {showAddSubject && (
+                    <>
+                      <input type="text" value={newModalSubject} onChange={e => setNewModalSubject(e.target.value)} placeholder="New subject name" className="border p-2 rounded w-32" />
+                      <button className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded" onClick={handleAddModalSubject}>Save</button>
+                      {addSubjectMsg && <span className="text-green-700 ml-2">{addSubjectMsg}</span>}
+                    </>
+                  )}
+                  <input type="number" value={modalCA} onChange={e => setModalCA(e.target.value)} placeholder="CA Score" className="border p-2 rounded w-24" />
+                  <input type="number" value={modalExam} onChange={e => setModalExam(e.target.value)} placeholder="Exam Score" className="border p-2 rounded w-24" />
+                  <input type="number" value={modalCA && modalExam ? Number(modalCA) + Number(modalExam) : ''} readOnly placeholder="Total" className="border p-2 rounded w-24 bg-gray-100" />
+                  <input type="text" value={modalGrade} onChange={e => setModalGrade(e.target.value)} placeholder="Grade" className="border p-2 rounded w-16" />
+                  <button className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded" onClick={handleAddStudentResult} disabled={!!lastAddedSubject}>Save</button>
+                  {lastAddedSubject && (
+                    <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded" onClick={handleAddAnotherSubject}>Add Another Subject</button>
+                  )}
+                </div>
+                {modalMsg && <div className="text-green-700 mb-2">{modalMsg}</div>}
+                <button className="mt-2 text-red-600 hover:underline" onClick={closeStudentModal}>Close</button>
+              </Modal>
             </div>
             <div className="bg-white rounded shadow p-6">
               <h3 className="font-bold mb-2 text-green-700">Upload Result for {selectedClass}</h3>

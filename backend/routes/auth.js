@@ -6,6 +6,7 @@ import { openDb } from '../db.js';
 const router = express.Router();
 
 router.post('/login', async (req, res) => {
+  console.log('LOGIN BODY:', req.body);
   const { student_id, password, isAdmin, email } = req.body;
   const db = await openDb();
   let user;
