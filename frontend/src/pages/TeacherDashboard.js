@@ -33,6 +33,11 @@ export default function TeacherDashboard() {
   const [newModalSubject, setNewModalSubject] = useState('');
   const [addSubjectMsg, setAddSubjectMsg] = useState('');
   const [lastAddedSubject, setLastAddedSubject] = useState('');
+  const [batchResults, setBatchResults] = useState([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('enter');
+  const [historyFilters, setHistoryFilters] = useState({ student_id: '', subject: '', term: '', session: '' });
+  const [historyResults, setHistoryResults] = useState([]);
 
   useEffect(() => {
     const teacherData = localStorage.getItem('teacher');
@@ -85,6 +90,19 @@ export default function TeacherDashboard() {
       .then(res => setSubjects(res.data))
       .catch(() => setSubjects([]));
   }, []);
+
+  // Fetch result history when filters or selectedClass change and tab is 'history'
+  useEffect(() => {
+    if (activeTab !== 'history' || !selectedClass) return;
+    let url = `http://localhost:5000/api/results?class=${selectedClass}`;
+    if (historyFilters.student_id) url += `&student_id=${historyFilters.student_id}`;
+    if (historyFilters.subject) url += `&subject=${historyFilters.subject}`;
+    if (historyFilters.term) url += `&term=${historyFilters.term}`;
+    if (historyFilters.session) url += `&session=${historyFilters.session}`;
+    axios.get(url)
+      .then(res => setHistoryResults(res.data))
+      .catch(() => setHistoryResults([]));
+  }, [activeTab, selectedClass, historyFilters]);
 
   // Handle input change for result form
   const handleResultInputChange = (student_id, field, value) => {
@@ -153,59 +171,65 @@ export default function TeacherDashboard() {
     } catch {
       setStudentResults([]);
     }
-    setModalSubject('');
-    setModalCA('');
-    setModalExam('');
-    setModalGrade('');
+    setBatchResults([]);
     setModalMsg('');
   };
   const closeStudentModal = () => {
     setModalOpen(false);
     setModalStudent(null);
     setStudentResults([]);
-    setModalSubject('');
-    setModalCA('');
-    setModalExam('');
-    setModalGrade('');
+    setBatchResults([]);
     setModalMsg('');
   };
-  const handleAddStudentResult = async () => {
-    if (!modalSubject || !modalCA || !modalExam || !modalGrade) {
-      setModalMsg('All fields are required.');
+  const handleAddBatchRow = () => {
+    setBatchResults(prev => [...prev, { subject: '', ca: '', exam: '', grade: '' }]);
+  };
+  const handleBatchRowChange = (idx, field, value) => {
+    setBatchResults(prev => prev.map((row, i) => i === idx ? { ...row, [field]: value } : row));
+  };
+  const handleRemoveBatchRow = (idx) => {
+    setBatchResults(prev => prev.filter((_, i) => i !== idx));
+  };
+  const handleSubmitBatchResults = async () => {
+    // Prevent duplicate subjects in the batch or with existing results
+    const allSubjects = [
+      ...studentResults.map(r => r.subject),
+      ...batchResults.map(r => r.subject)
+    ];
+    const hasDuplicates = new Set(batchResults.map(r => r.subject)).size !== batchResults.length;
+    const hasExisting = batchResults.some(r => studentResults.some(sr => sr.subject === r.subject));
+    if (hasDuplicates) {
+      setModalMsg('Duplicate subjects in batch.');
       return;
     }
-    // Prevent duplicate subject for this student/session/class/term
-    if (studentResults.some(r => r.subject === modalSubject)) {
-      setModalMsg('This subject already has a result for this student in this session/term/class.');
+    if (hasExisting) {
+      setModalMsg('One or more subjects already have results for this student in this session/term/class.');
       return;
     }
-    const total = Number(modalCA) + Number(modalExam);
+    if (batchResults.some(r => !r.subject || !r.ca || !r.exam || !r.grade)) {
+      setModalMsg('All fields are required for each row.');
+      return;
+    }
     try {
-      await axios.post('http://localhost:5000/api/results/manual', {
-        student_id: modalStudent.student_id,
-        subject: modalSubject,
-        score: total,
-        grade: modalGrade,
-        term,
-        session,
-        class: selectedClass
-      });
+      for (const row of batchResults) {
+        await axios.post('http://localhost:5000/api/results/manual', {
+          student_id: modalStudent.student_id,
+          subject: row.subject,
+          score: Number(row.ca) + Number(row.exam),
+          grade: row.grade,
+          term,
+          session,
+          class: selectedClass
+        });
+      }
       // Refresh results
       const res = await axios.get(`http://localhost:5000/api/results?student_id=${modalStudent.student_id}&class=${selectedClass}&term=${term}&session=${session}`);
       setStudentResults(res.data);
-      setLastAddedSubject(modalSubject);
-      setModalMsg('Result added!');
+      setBatchResults([]);
+      setModalMsg('All results added!');
     } catch {
-      setModalMsg('Error adding result.');
+      setModalMsg('Error adding results.');
     }
-  };
-  const handleAddAnotherSubject = () => {
-    setModalSubject('');
-    setModalCA('');
-    setModalExam('');
-    setModalGrade('');
-    setModalMsg('');
-    setLastAddedSubject('');
   };
 
   const handleAddModalSubject = async () => {
@@ -223,11 +247,16 @@ export default function TeacherDashboard() {
     }
   };
 
+  const handleHistoryFilterChange = (e) => {
+    setHistoryFilters({ ...historyFilters, [e.target.name]: e.target.value });
+  };
+
   const TERMS = ['1st Term', '2nd Term', '3rd Term'];
   const SESSIONS = ['2023/24', '2024/25', '2025/26'];
 
   return (
     <div className="min-h-screen bg-green-50">
+      {/* Header Bar */}
       <header className="bg-green-700 text-white flex items-center justify-between px-8 py-4 shadow">
         <div className="flex items-center gap-4">
           <div className="bg-white text-green-700 rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold border-2 border-green-300">
@@ -241,169 +270,225 @@ export default function TeacherDashboard() {
         <button className="bg-green-600 hover:bg-green-800 px-4 py-2 rounded text-white font-semibold" onClick={() => { localStorage.clear(); window.location = '/teacher-login'; }}>Logout</button>
       </header>
       <main className="max-w-3xl mx-auto mt-8 p-4">
+        {/* Class selection and main dashboard content here */}
         <div className="mb-6">
           <label className="font-semibold text-green-800">Select Class:</label>
-          <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="p-2 rounded border-green-300 border focus:outline-none ml-2">
+          <select
+            value={selectedClass}
+            onChange={e => setSelectedClass(e.target.value)}
+            className="p-2 rounded border-green-300 border focus:outline-none ml-2"
+          >
             <option value="">-- Select --</option>
             {classes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
           </select>
         </div>
+        {!selectedClass && (
+          <div className="text-center text-green-700 font-semibold mt-8">
+            Please select a class to view and enter results.
+          </div>
+        )}
         {selectedClass && (
           <>
-            <div className="bg-white rounded shadow p-6 mb-8">
-              <h3 className="font-bold mb-2 text-green-700">Students in {selectedClass}</h3>
-              <div className="flex gap-4 mb-4">
-                <select value={term} onChange={e => setTerm(e.target.value)} className="border p-2 rounded w-32">
-                  <option value="">Select Term</option>
-                  {TERMS.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-                <select value={session} onChange={e => setSession(e.target.value)} className="border p-2 rounded w-32">
-                  <option value="">Select Session</option>
-                  {SESSIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <table className="min-w-full">
-                <thead className="bg-green-200">
-                  <tr>
-                    <th className="py-2 px-4 text-left text-green-900">Full Name</th>
-                    <th className="py-2 px-4 text-left text-green-900">CA Score</th>
-                    <th className="py-2 px-4 text-left text-green-900">Exam Score</th>
-                    <th className="py-2 px-4 text-left text-green-900">Total</th>
-                    <th className="py-2 px-4 text-left text-green-900">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {students.map(s => {
-                    const ca = caScores[s.student_id] || '';
-                    const exam = examScores[s.student_id] || '';
-                    const total = ca && exam ? Number(ca) + Number(exam) : '';
-                    return (
-                      <tr key={s.id}>
-                        <td className="py-2 px-4">{s.fullname}</td>
-                        <td className="py-2 px-4">
-                          <input
-                            type="number"
-                            value={ca}
-                            onChange={e => setCaScores(prev => ({ ...prev, [s.student_id]: e.target.value }))}
-                            className="border p-1 rounded w-20"
-                          />
-                        </td>
-                        <td className="py-2 px-4">
-                          <input
-                            type="number"
-                            value={exam}
-                            onChange={e => setExamScores(prev => ({ ...prev, [s.student_id]: e.target.value }))}
-                            className="border p-1 rounded w-20"
-                          />
-                        </td>
-                        <td className="py-2 px-4">
-                          <input
-                            type="number"
-                            value={total}
-                            readOnly
-                            className="border p-1 rounded w-20 bg-gray-100"
-                          />
-                        </td>
-                        <td className="py-2 px-4">
-                          <button className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded" onClick={() => openStudentModal(s)}>View/Add Results</button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              <Modal
-                isOpen={modalOpen}
-                onRequestClose={closeStudentModal}
-                contentLabel="Student Results Modal"
-                ariaHideApp={false}
-                className="bg-white rounded shadow p-6 max-w-lg mx-auto mt-20 outline-none"
-                overlayClassName="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center"
+            {/* Tab Navigation */}
+            <div className="flex gap-4 mb-6">
+              <button
+                className={`px-4 py-2 rounded font-semibold ${activeTab === 'enter' ? 'bg-green-700 text-white' : 'bg-green-100 text-green-800'}`}
+                onClick={() => setActiveTab('enter')}
               >
-                <h3 className="font-bold mb-2 text-green-700">Results for {modalStudent?.fullname}</h3>
-                <div className="mb-4">
-                  <table className="min-w-full mb-2">
+                Enter Results
+              </button>
+              <button
+                className={`px-4 py-2 rounded font-semibold ${activeTab === 'history' ? 'bg-green-700 text-white' : 'bg-green-100 text-green-800'}`}
+                onClick={() => setActiveTab('history')}
+              >
+                View Result History
+              </button>
+            </div>
+            {/* Enter Results Panel */}
+            {activeTab === 'enter' && (
+              <div className="overflow-x-auto">
+                <div className="bg-white rounded shadow p-2 md:p-6 mb-4 md:mb-8">
+                  <h3 className="font-bold mb-2 text-green-700 text-base md:text-lg">Students in {selectedClass}</h3>
+                  <div className="flex flex-col md:flex-row gap-2 md:gap-4 mb-4">
+                    <select value={term} onChange={e => setTerm(e.target.value)} className="border p-2 rounded w-full md:w-32">
+                      <option value="">Select Term</option>
+                      {TERMS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <select value={session} onChange={e => setSession(e.target.value)} className="border p-2 rounded w-full md:w-32">
+                      <option value="">Select Session</option>
+                      {SESSIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <table className="min-w-[600px] w-full">
                     <thead className="bg-green-200">
                       <tr>
-                        <th className="py-2 px-4 text-left text-green-900">Subject</th>
-                        <th className="py-2 px-4 text-left text-green-900">Score</th>
-                        <th className="py-2 px-4 text-left text-green-900">Grade</th>
+                        <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Full Name</th>
+                        <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">CA Score</th>
+                        <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Exam Score</th>
+                        <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Total</th>
+                        <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {studentResults.map(r => (
+                      {students.map(s => {
+                        const ca = caScores[s.student_id] || '';
+                        const exam = examScores[s.student_id] || '';
+                        const total = ca && exam ? Number(ca) + Number(exam) : '';
+                        return (
+                          <tr key={s.id}>
+                            <td className="py-2 px-2 md:px-4">{s.fullname}</td>
+                            <td className="py-2 px-2 md:px-4">
+                              <input
+                                type="number"
+                                value={ca}
+                                onChange={e => setCaScores(prev => ({ ...prev, [s.student_id]: e.target.value }))}
+                                className="border p-1 rounded w-full md:w-20"
+                              />
+                            </td>
+                            <td className="py-2 px-2 md:px-4">
+                              <input
+                                type="number"
+                                value={exam}
+                                onChange={e => setExamScores(prev => ({ ...prev, [s.student_id]: e.target.value }))}
+                                className="border p-1 rounded w-full md:w-20"
+                              />
+                            </td>
+                            <td className="py-2 px-2 md:px-4">
+                              <input
+                                type="number"
+                                value={total}
+                                readOnly
+                                className="border p-1 rounded w-full md:w-20 bg-gray-100"
+                              />
+                            </td>
+                            <td className="py-2 px-2 md:px-4">
+                              <button className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded w-full md:w-auto" onClick={() => openStudentModal(s)}>View/Add Results</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <Modal
+                  isOpen={modalOpen}
+                  onRequestClose={closeStudentModal}
+                  contentLabel="Student Results Modal"
+                  ariaHideApp={false}
+                  className="bg-white rounded shadow p-2 md:p-6 max-w-3xl w-full mx-auto mt-10 md:mt-20 outline-none overflow-x-auto"
+                  overlayClassName="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center"
+                >
+                  <h3 className="font-bold mb-2 text-green-700 text-base md:text-lg">Results for {modalStudent?.fullname}</h3>
+                  <div className="mb-4 overflow-x-auto">
+                    <table className="min-w-[400px] w-full mb-2">
+                      <thead className="bg-green-200">
+                        <tr>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Subject</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Score</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Grade</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {studentResults.map(r => (
+                          <tr key={r.id}>
+                            <td className="py-2 px-2 md:px-4">{r.subject}</td>
+                            <td className="py-2 px-2 md:px-4">{r.score}</td>
+                            <td className="py-2 px-2 md:px-4">{r.grade}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mb-4 overflow-x-auto">
+                    <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded mb-2 w-full md:w-auto" onClick={handleAddBatchRow}>+ Add Subject Row</button>
+                    <table className="min-w-[600px] w-full">
+                      <thead className="bg-green-100">
+                        <tr>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Subject</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">CA</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Exam</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Total</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Grade</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {batchResults.map((row, idx) => (
+                          <tr key={idx}>
+                            <td className="py-2 px-2 md:px-4">
+                              <select value={row.subject} onChange={e => handleBatchRowChange(idx, 'subject', e.target.value)} className="border p-2 rounded w-full md:w-32">
+                                <option value="">Select Subject</option>
+                                {subjects.map(sub => (
+                                  <option key={sub.id + '-' + sub.name} value={sub.name}>{sub.name}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="py-2 px-2 md:px-4">
+                              <input type="number" value={row.ca} onChange={e => handleBatchRowChange(idx, 'ca', e.target.value)} className="border p-2 rounded w-full md:w-20" />
+                            </td>
+                            <td className="py-2 px-2 md:px-4">
+                              <input type="number" value={row.exam} onChange={e => handleBatchRowChange(idx, 'exam', e.target.value)} className="border p-2 rounded w-full md:w-20" />
+                            </td>
+                            <td className="py-2 px-2 md:px-4">
+                              <input type="number" value={row.ca && row.exam ? Number(row.ca) + Number(row.exam) : ''} readOnly className="border p-2 rounded w-full md:w-20 bg-gray-100" />
+                            </td>
+                            <td className="py-2 px-2 md:px-4">
+                              <input type="text" value={row.grade} onChange={e => handleBatchRowChange(idx, 'grade', e.target.value)} className="border p-2 rounded w-full md:w-16" />
+                            </td>
+                            <td className="py-2 px-2 md:px-4">
+                              <button className="text-red-600 hover:underline w-full md:w-auto" onClick={() => handleRemoveBatchRow(idx)}>Remove</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {batchResults.length > 0 && (
+                      <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold mt-2 w-full md:w-auto" onClick={handleSubmitBatchResults}>Submit All</button>
+                    )}
+                  </div>
+                  {modalMsg && <div className="text-green-700 mb-2">{modalMsg}</div>}
+                  <button className="mt-2 text-red-600 hover:underline w-full md:w-auto" onClick={closeStudentModal}>Close</button>
+                </Modal>
+              </div>
+            )}
+            {/* Result History Panel */}
+            {activeTab === 'history' && (
+              <div className="bg-white rounded shadow p-6 mt-4">
+                <h3 className="font-bold mb-2 text-green-700">Result History for {selectedClass}</h3>
+                <div className="flex gap-2 mb-4 flex-wrap">
+                  <input type="text" name="student_id" value={historyFilters.student_id} onChange={handleHistoryFilterChange} placeholder="Student ID" className="border p-2 rounded w-32" />
+                  <input type="text" name="subject" value={historyFilters.subject} onChange={handleHistoryFilterChange} placeholder="Subject" className="border p-2 rounded w-32" />
+                  <input type="text" name="term" value={historyFilters.term} onChange={handleHistoryFilterChange} placeholder="Term" className="border p-2 rounded w-32" />
+                  <input type="text" name="session" value={historyFilters.session} onChange={handleHistoryFilterChange} placeholder="Session" className="border p-2 rounded w-32" />
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[600px] w-full bg-green-50 rounded">
+                    <thead className="bg-green-200">
+                      <tr>
+                        <th className="py-2 px-4 text-left text-green-900">Student ID</th>
+                        <th className="py-2 px-4 text-left text-green-900">Subject</th>
+                        <th className="py-2 px-4 text-left text-green-900">Score</th>
+                        <th className="py-2 px-4 text-left text-green-900">Grade</th>
+                        <th className="py-2 px-4 text-left text-green-900">Term</th>
+                        <th className="py-2 px-4 text-left text-green-900">Session</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyResults.map(r => (
                         <tr key={r.id}>
+                          <td className="py-2 px-4">{r.student_id}</td>
                           <td className="py-2 px-4">{r.subject}</td>
                           <td className="py-2 px-4">{r.score}</td>
                           <td className="py-2 px-4">{r.grade}</td>
+                          <td className="py-2 px-4">{r.term}</td>
+                          <td className="py-2 px-4">{r.session}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                <div className="mb-4 flex gap-2 flex-wrap">
-                  <select value={modalSubject} onChange={e => setModalSubject(e.target.value)} className="border p-2 rounded w-32">
-                    <option value="">Select Subject</option>
-                    {subjects.map(sub => (
-                      <option key={sub.id + '-' + sub.name} value={sub.name}>{sub.name}</option>
-                    ))}
-                  </select>
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded" onClick={() => setShowAddSubject(v => !v)}>+ Add Subject</button>
-                  {showAddSubject && (
-                    <>
-                      <input type="text" value={newModalSubject} onChange={e => setNewModalSubject(e.target.value)} placeholder="New subject name" className="border p-2 rounded w-32" />
-                      <button className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded" onClick={handleAddModalSubject}>Save</button>
-                      {addSubjectMsg && <span className="text-green-700 ml-2">{addSubjectMsg}</span>}
-                    </>
-                  )}
-                  <input type="number" value={modalCA} onChange={e => setModalCA(e.target.value)} placeholder="CA Score" className="border p-2 rounded w-24" />
-                  <input type="number" value={modalExam} onChange={e => setModalExam(e.target.value)} placeholder="Exam Score" className="border p-2 rounded w-24" />
-                  <input type="number" value={modalCA && modalExam ? Number(modalCA) + Number(modalExam) : ''} readOnly placeholder="Total" className="border p-2 rounded w-24 bg-gray-100" />
-                  <input type="text" value={modalGrade} onChange={e => setModalGrade(e.target.value)} placeholder="Grade" className="border p-2 rounded w-16" />
-                  <button className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded" onClick={handleAddStudentResult} disabled={!!lastAddedSubject}>Save</button>
-                  {lastAddedSubject && (
-                    <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded" onClick={handleAddAnotherSubject}>Add Another Subject</button>
-                  )}
-                </div>
-                {modalMsg && <div className="text-green-700 mb-2">{modalMsg}</div>}
-                <button className="mt-2 text-red-600 hover:underline" onClick={closeStudentModal}>Close</button>
-              </Modal>
-            </div>
-            <div className="bg-white rounded shadow p-6">
-              <h3 className="font-bold mb-2 text-green-700">Upload Result for {selectedClass}</h3>
-              <div className="flex items-center gap-2 mb-4">
-                <input type="file" accept=".csv" onChange={e => setCsvFile(e.target.files[0])} className="border p-2 rounded w-full" />
-                <button className="bg-green-600 hover:bg-green-700 text-white p-2 rounded" onClick={handleUpload}>Upload CSV</button>
               </div>
-              {message && <div className="text-green-700 mb-2">{message}</div>}
-            </div>
-            <div className="bg-white rounded shadow p-6">
-              <h3 className="font-bold mb-2 text-green-700">Results for {selectedClass}</h3>
-              <table className="min-w-full">
-                <thead className="bg-green-200">
-                  <tr>
-                    <th className="py-2 px-4 text-left text-green-900">Student ID</th>
-                    <th className="py-2 px-4 text-left text-green-900">Subject</th>
-                    <th className="py-2 px-4 text-left text-green-900">Score</th>
-                    <th className="py-2 px-4 text-left text-green-900">Grade</th>
-                    <th className="py-2 px-4 text-left text-green-900">Term</th>
-                    <th className="py-2 px-4 text-left text-green-900">Session</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {results.map((r, i) => (
-                    <tr key={r.id || i} className={i % 2 === 0 ? 'bg-green-50' : ''}>
-                      <td className="py-2 px-4">{r.student_id}</td>
-                      <td className="py-2 px-4">{r.subject}</td>
-                      <td className="py-2 px-4">{r.score}</td>
-                      <td className="py-2 px-4">{r.grade}</td>
-                      <td className="py-2 px-4">{r.term}</td>
-                      <td className="py-2 px-4">{r.session}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            )}
           </>
         )}
       </main>
