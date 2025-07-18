@@ -1,4 +1,5 @@
 import { openDb } from './db.js';
+import { initDb } from './db.js';
 import bcrypt from 'bcrypt';
 
 async function seed() {
@@ -58,7 +59,22 @@ async function seed() {
   );
 
   console.log('Seeded demo students, teachers, and admin.');
+}
+
+async function seedSubjects() {
+  const db = await openDb();
+  const subjects = ['english', 'mathematics', 'yoruba'];
+  for (const name of subjects) {
+    await db.run('INSERT OR IGNORE INTO subjects (name) VALUES (?)', [name]);
+  }
+  console.log('Subjects seeded');
+}
+
+async function main() {
+  await initDb();
+  await seed();
+  await seedSubjects();
   process.exit();
 }
 
-seed(); 
+main(); 

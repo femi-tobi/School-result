@@ -35,4 +35,17 @@ router.post('/manual', async (req, res) => {
   res.json({ message: 'Result added' });
 });
 
+// Fetch results by class
+router.get('/', async (req, res) => {
+  const { class: className } = req.query;
+  const db = await openDb();
+  let results;
+  if (className) {
+    results = await db.all('SELECT * FROM results WHERE class = ?', [className]);
+  } else {
+    results = await db.all('SELECT * FROM results');
+  }
+  res.json(results);
+});
+
 export default router; 

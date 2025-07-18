@@ -1,6 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config();
 import { initDb } from './db.js';
 import authRoutes from './routes/auth.js';
 import studentRoutes from './routes/student.js';
@@ -10,8 +15,8 @@ import subjectRoutes from './routes/subject.js';
 import classRoutes from './routes/class.js';
 import teacherAuthRoutes from './routes/teacherAuth.js';
 import teacherAdminRoutes from './routes/teacherAdmin.js';
+import sessionRoutes from './routes/session.js';
 
-dotenv.config();
 
 const app = express();
 app.use(cors());
@@ -26,6 +31,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/classes', classRoutes);
+app.use('/api/sessions', sessionRoutes);
 app.use('/api/teacher', teacherAuthRoutes);
 app.use('/api/admin', teacherAdminRoutes);
 

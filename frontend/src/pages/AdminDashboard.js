@@ -41,6 +41,20 @@ export default function AdminDashboard() {
   const [assignClasses, setAssignClasses] = useState([]);
   const [assignTeacherId, setAssignTeacherId] = useState(null);
 
+  // Manage Subjects state
+  const [subjects, setSubjects] = useState([]);
+  const [newSubject, setNewSubject] = useState('');
+  const [subjectMsg, setSubjectMsg] = useState('');
+
+  // Manage Sessions/Terms state
+  const [sessions, setSessions] = useState([]);
+  const [newSession, setNewSession] = useState('');
+  const [sessionMsg, setSessionMsg] = useState('');
+
+  // View Result History state
+  const [results, setResults] = useState([]);
+  const [historyFilters, setHistoryFilters] = useState({ student_id: '', class: '', term: '', session: '' });
+
   // Fetch classes on mount
   useEffect(() => {
     axios.get('http://localhost:5000/api/classes')
@@ -67,6 +81,40 @@ export default function AdminDashboard() {
         .catch(() => setTeachers([]));
     }
   }, [activePanel]);
+
+  // Fetch subjects on mount or when panel is active
+  useEffect(() => {
+    if (activePanel === 'subjects') {
+      axios.get('http://localhost:5000/api/subjects')
+        .then(res => setSubjects(res.data))
+        .catch(() => setSubjects([]));
+    }
+  }, [activePanel]);
+
+  // Fetch sessions on mount or when panel is active
+  useEffect(() => {
+    if (activePanel === 'sessions') {
+      axios.get('http://localhost:5000/api/sessions')
+        .then(res => setSessions(res.data))
+        .catch(() => setSessions([]));
+    }
+  }, [activePanel]);
+
+  // Fetch results for history panel
+  useEffect(() => {
+    if (activePanel === 'history') {
+      let url = 'http://localhost:5000/api/results?';
+      const params = [];
+      if (historyFilters.student_id) params.push(`student_id=${historyFilters.student_id}`);
+      if (historyFilters.class) params.push(`class=${historyFilters.class}`);
+      if (historyFilters.term) params.push(`term=${historyFilters.term}`);
+      if (historyFilters.session) params.push(`session=${historyFilters.session}`);
+      url += params.join('&');
+      axios.get(url)
+        .then(res => setResults(res.data))
+        .catch(() => setResults([]));
+    }
+  }, [activePanel, historyFilters]);
 
   // Handlers for Upload Result
   const handleUpload = async () => {
@@ -268,6 +316,58 @@ export default function AdminDashboard() {
     }
   };
 
+  // Manage Subjects handlers
+  const handleAddSubject = async (e) => {
+    e.preventDefault();
+    if (!newSubject.trim()) return;
+    try {
+      await axios.post('http://localhost:5000/api/subjects', { name: newSubject });
+      const res = await axios.get('http://localhost:5000/api/subjects');
+      setSubjects(res.data);
+      setSubjectMsg('Subject added!');
+      setNewSubject('');
+    } catch (err) {
+      setSubjectMsg('Error adding subject.');
+    }
+  };
+
+  const handleDeleteSubject = async (id) => {
+    try {
+      await axios.delete(`http://localhost:5000/api/subjects/${id}`);
+      const res = await axios.get('http://localhost:5000/api/subjects');
+      setSubjects(res.data);
+    } catch (err) {
+      setSubjectMsg('Error deleting subject.');
+    }
+  };
+
+  // Manage Sessions/Terms handlers
+  const handleAddSession = async (e) => {
+    e.preventDefault();
+    if (!newSession.trim()) return;
+    try {
+      await axios.post('http://localhost:5000/api/sessions', { name: newSession });
+      setSessions([...sessions, { name: newSession }]);
+      setSessionMsg('Session added!');
+      setNewSession('');
+    } catch (err) {
+      setSessionMsg('Error adding session.');
+    }
+  };
+
+  const handleDeleteSession = async (id) => {
+    try {
+      await axios.delete(`http://localhost:5000/api/sessions/${id}`);
+      setSessions(sessions.filter(s => s.id !== id));
+    } catch (err) {
+      setSessionMsg('Error deleting session.');
+    }
+  };
+
+  const handleHistoryFilterChange = (e) => {
+    setHistoryFilters({ ...historyFilters, [e.target.name]: e.target.value });
+  };
+
   // Dummy panels for demonstration
   const renderPanel = () => {
     switch (activePanel) {
@@ -363,14 +463,38 @@ export default function AdminDashboard() {
         return (
           <div className="bg-white rounded shadow p-6 max-w-xl">
             <h3 className="font-bold mb-2 text-green-700">Manage Subjects</h3>
-            <div className="text-green-900">(Subject management UI goes here)</div>
+            <form onSubmit={handleAddSubject} className="flex gap-2 mb-4">
+              <input type="text" value={newSubject} onChange={e => setNewSubject(e.target.value)} placeholder="New subject name" className="border p-2 rounded w-full" />
+              <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold">Add</button>
+            </form>
+            {subjectMsg && <div className="mb-2 text-green-700">{subjectMsg}</div>}
+            <ul className="divide-y">
+              {subjects.map(s => (
+                <li key={s.id} className="flex items-center justify-between py-2">
+                  <span>{s.name}</span>
+                  <button className="text-red-600 hover:underline" onClick={() => handleDeleteSubject(s.id)}>Delete</button>
+                </li>
+              ))}
+            </ul>
           </div>
         );
       case 'sessions':
         return (
           <div className="bg-white rounded shadow p-6 max-w-xl">
             <h3 className="font-bold mb-2 text-green-700">Manage Sessions/Terms</h3>
-            <div className="text-green-900">(Session/term management UI goes here)</div>
+            <form onSubmit={handleAddSession} className="flex gap-2 mb-4">
+              <input type="text" value={newSession} onChange={e => setNewSession(e.target.value)} placeholder="New session name" className="border p-2 rounded w-full" />
+              <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold">Add</button>
+            </form>
+            {sessionMsg && <div className="mb-2 text-green-700">{sessionMsg}</div>}
+            <ul className="divide-y">
+              {sessions.map(s => (
+                <li key={s.id} className="flex items-center justify-between py-2">
+                  <span>{s.name}</span>
+                  <button className="text-red-600 hover:underline" onClick={() => handleDeleteSession(s.id)}>Delete</button>
+                </li>
+              ))}
+            </ul>
           </div>
         );
       case 'classes':
@@ -396,7 +520,38 @@ export default function AdminDashboard() {
         return (
           <div className="bg-white rounded shadow p-6 max-w-xl">
             <h3 className="font-bold mb-2 text-green-700">View Result History</h3>
-            <div className="text-green-900">(Result history UI goes here)</div>
+            <div className="flex gap-2 mb-4">
+              <input type="text" name="student_id" value={historyFilters.student_id} onChange={handleHistoryFilterChange} placeholder="Student ID" className="border p-2 rounded w-32" />
+              <input type="text" name="class" value={historyFilters.class} onChange={handleHistoryFilterChange} placeholder="Class" className="border p-2 rounded w-24" />
+              <input type="text" name="term" value={historyFilters.term} onChange={handleHistoryFilterChange} placeholder="Term" className="border p-2 rounded w-24" />
+              <input type="text" name="session" value={historyFilters.session} onChange={handleHistoryFilterChange} placeholder="Session" className="border p-2 rounded w-24" />
+            </div>
+            <table className="min-w-full bg-green-50 rounded">
+              <thead className="bg-green-200">
+                <tr>
+                  <th className="py-2 px-4 text-left text-green-900">Student ID</th>
+                  <th className="py-2 px-4 text-left text-green-900">Class</th>
+                  <th className="py-2 px-4 text-left text-green-900">Subject</th>
+                  <th className="py-2 px-4 text-left text-green-900">Score</th>
+                  <th className="py-2 px-4 text-left text-green-900">Grade</th>
+                  <th className="py-2 px-4 text-left text-green-900">Term</th>
+                  <th className="py-2 px-4 text-left text-green-900">Session</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map(r => (
+                  <tr key={r.id} className="border-b">
+                    <td className="py-2 px-4">{r.student_id}</td>
+                    <td className="py-2 px-4">{r.class}</td>
+                    <td className="py-2 px-4">{r.subject}</td>
+                    <td className="py-2 px-4">{r.score}</td>
+                    <td className="py-2 px-4">{r.grade}</td>
+                    <td className="py-2 px-4">{r.term}</td>
+                    <td className="py-2 px-4">{r.session}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         );
       case 'manageTeachers':

@@ -8,6 +8,13 @@ export default function TeacherDashboard() {
   const [results, setResults] = useState([]);
   const [csvFile, setCsvFile] = useState(null);
   const [message, setMessage] = useState('');
+  const [students, setStudents] = useState([]);
+  const [subject, setSubject] = useState('');
+  const [term, setTerm] = useState('');
+  const [session, setSession] = useState('');
+  const [resultInputs, setResultInputs] = useState({}); // { student_id: { score, grade } }
+  const [resultMsg, setResultMsg] = useState('');
+  const [subjects, setSubjects] = useState([]);
 
   useEffect(() => {
     const teacherData = localStorage.getItem('teacher');
@@ -28,6 +35,77 @@ export default function TeacherDashboard() {
       .catch(() => setResults([]));
   }, [selectedClass]);
 
+  useEffect(() => {
+    if (!selectedClass || !teacher.id) return;
+    axios.get(`http://localhost:5000/api/admin/teachers/${teacher.id}/students`)
+      .then(res => {
+        // Filter students for the selected class
+        setStudents(res.data.filter(s => s.class === selectedClass));
+      })
+      .catch(() => setStudents([]));
+  }, [selectedClass, teacher.id]);
+
+  // Fetch results for selected class, subject, term, session
+  useEffect(() => {
+    if (!selectedClass || !subject || !term || !session) return;
+    axios.get(`http://localhost:5000/api/results?class=${selectedClass}&subject=${subject}&term=${term}&session=${session}`)
+      .then(res => {
+        // Map results by student_id for quick lookup
+        const map = {};
+        res.data.forEach(r => { map[r.student_id] = r; });
+        setResultInputs(students.reduce((acc, s) => {
+          acc[s.student_id] = map[s.student_id] ? { score: map[s.student_id].score, grade: map[s.student_id].grade } : { score: '', grade: '' };
+          return acc;
+        }, {}));
+      })
+      .catch(() => setResultInputs({}));
+  }, [selectedClass, subject, term, session, students]);
+
+  // Fetch subjects on mount
+  useEffect(() => {
+    axios.get('http://localhost:5000/api/subjects')
+      .then(res => setSubjects(res.data))
+      .catch(() => setSubjects([]));
+  }, []);
+
+  // Handle input change for result form
+  const handleResultInputChange = (student_id, field, value) => {
+    setResultInputs(prev => ({
+      ...prev,
+      [student_id]: {
+        ...prev[student_id],
+        [field]: value
+      }
+    }));
+  };
+
+  // Handle submit for a student's result
+  const handleResultSubmit = async (student_id) => {
+    if (!subject || !term || !session) {
+      setResultMsg('Please select subject, term, and session.');
+      return;
+    }
+    const { score, grade } = resultInputs[student_id] || {};
+    if (!score || !grade) {
+      setResultMsg('Score and grade are required.');
+      return;
+    }
+    try {
+      await axios.post('http://localhost:5000/api/results/manual', {
+        student_id,
+        subject,
+        score,
+        grade,
+        term,
+        session,
+        class: selectedClass
+      });
+      setResultMsg('Result saved!');
+    } catch (err) {
+      setResultMsg('Error saving result.');
+    }
+  };
+
   const handleUpload = async () => {
     if (!csvFile || !selectedClass) {
       setMessage('Please select a class and choose a file.');
@@ -46,6 +124,9 @@ export default function TeacherDashboard() {
       setMessage('Error uploading results.');
     }
   };
+
+  const TERMS = ['1st Term', '2nd Term', '3rd Term'];
+  const SESSIONS = ['2023/24', '2024/25', '2025/26'];
 
   return (
     <div className="min-h-screen bg-green-50">
@@ -72,6 +153,76 @@ export default function TeacherDashboard() {
         {selectedClass && (
           <>
             <div className="bg-white rounded shadow p-6 mb-8">
+              <h3 className="font-bold mb-2 text-green-700">Students in {selectedClass}</h3>
+              <div className="flex gap-4 mb-4">
+                <div className="relative">
+                  <input
+                    list="subject-list"
+                    type="text"
+                    placeholder="Subject"
+                    value={subject}
+                    onChange={e => setSubject(e.target.value)}
+                    className="border p-2 rounded w-40"
+                  />
+                  <datalist id="subject-list">
+                    {subjects.map(s => (
+                      <option key={s.id} value={s.name} />
+                    ))}
+                  </datalist>
+                </div>
+                <select value={term} onChange={e => setTerm(e.target.value)} className="border p-2 rounded w-32">
+                  <option value="">Select Term</option>
+                  {TERMS.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select value={session} onChange={e => setSession(e.target.value)} className="border p-2 rounded w-32">
+                  <option value="">Select Session</option>
+                  {SESSIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <table className="min-w-full">
+                <thead className="bg-green-200">
+                  <tr>
+                    <th className="py-2 px-4 text-left text-green-900">Full Name</th>
+                    <th className="py-2 px-4 text-left text-green-900">Student ID</th>
+                    <th className="py-2 px-4 text-left text-green-900">Score</th>
+                    <th className="py-2 px-4 text-left text-green-900">Grade</th>
+                    <th className="py-2 px-4 text-left text-green-900">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.map(s => (
+                    <tr key={s.id}>
+                      <td className="py-2 px-4">{s.fullname}</td>
+                      <td className="py-2 px-4">{s.student_id}</td>
+                      <td className="py-2 px-4">
+                        <input
+                          type="number"
+                          value={resultInputs[s.student_id]?.score || ''}
+                          onChange={e => handleResultInputChange(s.student_id, 'score', e.target.value)}
+                          className="border p-1 rounded w-20"
+                        />
+                      </td>
+                      <td className="py-2 px-4">
+                        <input
+                          type="text"
+                          value={resultInputs[s.student_id]?.grade || ''}
+                          onChange={e => handleResultInputChange(s.student_id, 'grade', e.target.value)}
+                          className="border p-1 rounded w-16"
+                        />
+                      </td>
+                      <td className="py-2 px-4">
+                        <button
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
+                          onClick={() => handleResultSubmit(s.student_id)}
+                        >Save</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {resultMsg && <div className="text-green-700 mt-2">{resultMsg}</div>}
+            </div>
+            <div className="bg-white rounded shadow p-6">
               <h3 className="font-bold mb-2 text-green-700">Upload Result for {selectedClass}</h3>
               <div className="flex items-center gap-2 mb-4">
                 <input type="file" accept=".csv" onChange={e => setCsvFile(e.target.files[0])} className="border p-2 rounded w-full" />

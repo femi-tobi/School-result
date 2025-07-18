@@ -67,4 +67,27 @@ router.get('/teachers/:id/classes', async (req, res) => {
   res.json(classes);
 });
 
+// Get all students in teacher's classes
+router.get('/teachers/:id/students', async (req, res) => {
+  const { id } = req.params;
+  const db = await openDb();
+  // Get all class IDs assigned to this teacher
+  const classRows = await db.all('SELECT class_id FROM teacher_classes WHERE teacher_id = ?', [id]);
+  const classIds = classRows.map(row => row.class_id);
+  if (classIds.length === 0) {
+    return res.json([]); // No classes assigned
+  }
+  // Get class names for these IDs
+  const placeholders = classIds.map(() => '?').join(',');
+  const classNameRows = await db.all(`SELECT name FROM classes WHERE id IN (${placeholders})`, classIds);
+  const classNames = classNameRows.map(row => row.name);
+  if (classNames.length === 0) {
+    return res.json([]); // No class names found
+  }
+  // Get all students whose class matches any of these class names
+  const studentPlaceholders = classNames.map(() => '?').join(',');
+  const students = await db.all(`SELECT * FROM students WHERE class IN (${studentPlaceholders})`, classNames);
+  res.json(students);
+});
+
 export default router; 

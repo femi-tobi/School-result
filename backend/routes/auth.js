@@ -17,7 +17,7 @@ router.post('/login', async (req, res) => {
   if (!user) return res.status(401).json({ message: 'User not found' });
   const match = await bcrypt.compare(password, user.password);
   if (!match) return res.status(401).json({ message: 'Invalid credentials' });
-  const token = jwt.sign({ id: user.id, isAdmin: !!isAdmin }, process.env.JWT_SECRET, { expiresIn: '1d' });
+  const token = jwt.sign({ id: user.id, isAdmin: !!isAdmin }, 'mydevelopmentsecret123', { expiresIn: '1d' });
   // Remove password but keep all other fields
   const { password: _pw, ...userWithoutPassword } = user;
   res.json({ token, user: userWithoutPassword });
