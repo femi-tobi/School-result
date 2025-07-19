@@ -16,6 +16,7 @@ import classRoutes from './routes/class.js';
 import teacherAuthRoutes from './routes/teacherAuth.js';
 import teacherAdminRoutes from './routes/teacherAdmin.js';
 import sessionRoutes from './routes/session.js';
+import remarkRoutes from './routes/remark.js';
 
 
 const app = express();
@@ -34,6 +35,7 @@ app.use('/api/classes', classRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/teacher', teacherAuthRoutes);
 app.use('/api/admin', teacherAdminRoutes);
+app.use('/api/remarks', remarkRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`)); 

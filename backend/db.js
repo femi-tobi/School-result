@@ -65,6 +65,14 @@ export async function initDb() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE
       );
+      CREATE TABLE IF NOT EXISTS remarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id TEXT,
+        class TEXT,
+        term TEXT,
+        session TEXT,
+        remark TEXT
+      );
     `);
     console.log('Database tables created or already exist.');
   } catch (err) {

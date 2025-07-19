@@ -38,6 +38,8 @@ export default function TeacherDashboard() {
   const [activeTab, setActiveTab] = useState('enter');
   const [historyFilters, setHistoryFilters] = useState({ student_id: '', subject: '', term: '', session: '' });
   const [historyResults, setHistoryResults] = useState([]);
+  const [remark, setRemark] = useState('');
+  const [remarkMsg, setRemarkMsg] = useState('');
 
   useEffect(() => {
     const teacherData = localStorage.getItem('teacher');
@@ -171,8 +173,16 @@ export default function TeacherDashboard() {
     } catch {
       setStudentResults([]);
     }
+    // Fetch existing remark
+    try {
+      const r = await axios.get(`http://localhost:5000/api/remarks?student_id=${student.student_id}&class=${selectedClass}&term=${term}&session=${session}`);
+      setRemark(r.data?.remark || '');
+    } catch {
+      setRemark('');
+    }
     setBatchResults([]);
     setModalMsg('');
+    setRemarkMsg('');
   };
   const closeStudentModal = () => {
     setModalOpen(false);
@@ -253,6 +263,25 @@ export default function TeacherDashboard() {
 
   const TERMS = ['1st Term', '2nd Term', '3rd Term'];
   const SESSIONS = ['2023/24', '2024/25', '2025/26'];
+
+  const handleSaveRemark = async () => {
+    if (!remark.trim()) {
+      setRemarkMsg('Remark cannot be empty.');
+      return;
+    }
+    try {
+      await axios.post('http://localhost:5000/api/remarks', {
+        student_id: modalStudent.student_id,
+        class: selectedClass,
+        term,
+        session,
+        remark
+      });
+      setRemarkMsg('Remark saved!');
+    } catch {
+      setRemarkMsg('Error saving remark.');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-green-50">
@@ -447,6 +476,17 @@ export default function TeacherDashboard() {
                     )}
                   </div>
                   {modalMsg && <div className="text-green-700 mb-2">{modalMsg}</div>}
+                  <div className="mt-6">
+                    <label className="font-semibold text-green-800">Report Card Remark:</label>
+                    <textarea
+                      value={remark}
+                      onChange={e => setRemark(e.target.value)}
+                      className="border p-2 rounded w-full min-h-[60px] mt-2"
+                      placeholder="Enter overall remark for this student for this term/session..."
+                    />
+                    <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold mt-2" onClick={handleSaveRemark}>Save Remark</button>
+                    {remarkMsg && <div className="text-green-700 mt-1">{remarkMsg}</div>}
+                  </div>
                   <button className="mt-2 text-red-600 hover:underline w-full md:w-auto" onClick={closeStudentModal}>Close</button>
                 </Modal>
               </div>
@@ -460,33 +500,33 @@ export default function TeacherDashboard() {
                   <input type="text" name="subject" value={historyFilters.subject} onChange={handleHistoryFilterChange} placeholder="Subject" className="border p-2 rounded w-32" />
                   <input type="text" name="term" value={historyFilters.term} onChange={handleHistoryFilterChange} placeholder="Term" className="border p-2 rounded w-32" />
                   <input type="text" name="session" value={historyFilters.session} onChange={handleHistoryFilterChange} placeholder="Session" className="border p-2 rounded w-32" />
-                </div>
+            </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-[600px] w-full bg-green-50 rounded">
-                    <thead className="bg-green-200">
-                      <tr>
-                        <th className="py-2 px-4 text-left text-green-900">Student ID</th>
-                        <th className="py-2 px-4 text-left text-green-900">Subject</th>
-                        <th className="py-2 px-4 text-left text-green-900">Score</th>
-                        <th className="py-2 px-4 text-left text-green-900">Grade</th>
-                        <th className="py-2 px-4 text-left text-green-900">Term</th>
-                        <th className="py-2 px-4 text-left text-green-900">Session</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                <thead className="bg-green-200">
+                  <tr>
+                    <th className="py-2 px-4 text-left text-green-900">Student ID</th>
+                    <th className="py-2 px-4 text-left text-green-900">Subject</th>
+                    <th className="py-2 px-4 text-left text-green-900">Score</th>
+                    <th className="py-2 px-4 text-left text-green-900">Grade</th>
+                    <th className="py-2 px-4 text-left text-green-900">Term</th>
+                    <th className="py-2 px-4 text-left text-green-900">Session</th>
+                  </tr>
+                </thead>
+                <tbody>
                       {historyResults.map(r => (
                         <tr key={r.id}>
-                          <td className="py-2 px-4">{r.student_id}</td>
-                          <td className="py-2 px-4">{r.subject}</td>
-                          <td className="py-2 px-4">{r.score}</td>
-                          <td className="py-2 px-4">{r.grade}</td>
-                          <td className="py-2 px-4">{r.term}</td>
-                          <td className="py-2 px-4">{r.session}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      <td className="py-2 px-4">{r.student_id}</td>
+                      <td className="py-2 px-4">{r.subject}</td>
+                      <td className="py-2 px-4">{r.score}</td>
+                      <td className="py-2 px-4">{r.grade}</td>
+                      <td className="py-2 px-4">{r.term}</td>
+                      <td className="py-2 px-4">{r.session}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
               </div>
             )}
           </>
