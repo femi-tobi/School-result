@@ -192,7 +192,7 @@ export default function TeacherDashboard() {
     setModalMsg('');
   };
   const handleAddBatchRow = () => {
-    setBatchResults(prev => [...prev, { subject: '', ca: '', exam: '', grade: '' }]);
+    setBatchResults(prev => [...prev, { subject: '', ca1: '', ca2: '', ca3: '', exam: '', grade: '', remark: '' }]);
   };
   const handleBatchRowChange = (idx, field, value) => {
     setBatchResults(prev => prev.map((row, i) => i === idx ? { ...row, [field]: value } : row));
@@ -216,7 +216,7 @@ export default function TeacherDashboard() {
       setModalMsg('One or more subjects already have results for this student in this session/term/class.');
       return;
     }
-    if (batchResults.some(r => !r.subject || !r.ca || !r.exam || !r.grade)) {
+    if (batchResults.some(r => !r.subject || !r.ca1 || !r.ca2 || !r.ca3 || !r.exam || !r.grade || !r.remark)) {
       setModalMsg('All fields are required for each row.');
       return;
     }
@@ -225,8 +225,12 @@ export default function TeacherDashboard() {
         await axios.post('http://localhost:5000/api/results/manual', {
           student_id: modalStudent.student_id,
           subject: row.subject,
-          score: Number(row.ca) + Number(row.exam),
+          ca1: row.ca1 || 0,
+          ca2: row.ca2 || 0,
+          ca3: row.ca3 || 0,
+          score: row.exam || 0,
           grade: row.grade,
+          remark: row.remark,
           term,
           session,
           class: selectedClass
@@ -413,16 +417,26 @@ export default function TeacherDashboard() {
                       <thead className="bg-green-200">
                         <tr>
                           <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Subject</th>
-                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Score</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">CA1</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">CA2</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">CA3</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Exam</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Total</th>
                           <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Grade</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Remark</th>
                         </tr>
                       </thead>
                       <tbody>
                         {studentResults.map(r => (
                           <tr key={r.id}>
                             <td className="py-2 px-2 md:px-4">{r.subject}</td>
+                            <td className="py-2 px-2 md:px-4">{r.ca1}</td>
+                            <td className="py-2 px-2 md:px-4">{r.ca2}</td>
+                            <td className="py-2 px-2 md:px-4">{r.ca3}</td>
                             <td className="py-2 px-2 md:px-4">{r.score}</td>
+                            <td className="py-2 px-2 md:px-4">{(Number(r.ca1 || 0) + Number(r.ca2 || 0) + Number(r.ca3 || 0) + Number(r.score || 0))}</td>
                             <td className="py-2 px-2 md:px-4">{r.grade}</td>
+                            <td className="py-2 px-2 md:px-4">{r.remark}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -434,10 +448,13 @@ export default function TeacherDashboard() {
                       <thead className="bg-green-100">
                         <tr>
                           <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Subject</th>
-                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">CA</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">CA1</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">CA2</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">CA3</th>
                           <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Exam</th>
                           <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Total</th>
                           <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Grade</th>
+                          <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Remark</th>
                           <th className="py-2 px-2 md:px-4 text-left text-green-900 text-xs md:text-base">Action</th>
                         </tr>
                       </thead>
@@ -453,16 +470,25 @@ export default function TeacherDashboard() {
                               </select>
                             </td>
                             <td className="py-2 px-2 md:px-4">
-                              <input type="number" value={row.ca} onChange={e => handleBatchRowChange(idx, 'ca', e.target.value)} className="border p-2 rounded w-full md:w-20" />
+                              <input type="number" value={row.ca1 || ''} onChange={e => handleBatchRowChange(idx, 'ca1', e.target.value)} className="border p-2 rounded w-full md:w-16" />
                             </td>
                             <td className="py-2 px-2 md:px-4">
-                              <input type="number" value={row.exam} onChange={e => handleBatchRowChange(idx, 'exam', e.target.value)} className="border p-2 rounded w-full md:w-20" />
+                              <input type="number" value={row.ca2 || ''} onChange={e => handleBatchRowChange(idx, 'ca2', e.target.value)} className="border p-2 rounded w-full md:w-16" />
                             </td>
                             <td className="py-2 px-2 md:px-4">
-                              <input type="number" value={row.ca && row.exam ? Number(row.ca) + Number(row.exam) : ''} readOnly className="border p-2 rounded w-full md:w-20 bg-gray-100" />
+                              <input type="number" value={row.ca3 || ''} onChange={e => handleBatchRowChange(idx, 'ca3', e.target.value)} className="border p-2 rounded w-full md:w-16" />
                             </td>
                             <td className="py-2 px-2 md:px-4">
-                              <input type="text" value={row.grade} onChange={e => handleBatchRowChange(idx, 'grade', e.target.value)} className="border p-2 rounded w-full md:w-16" />
+                              <input type="number" value={row.exam || ''} onChange={e => handleBatchRowChange(idx, 'exam', e.target.value)} className="border p-2 rounded w-full md:w-16" />
+                            </td>
+                            <td className="py-2 px-2 md:px-4">
+                              <input type="number" value={(Number(row.ca1 || 0) + Number(row.ca2 || 0) + Number(row.ca3 || 0) + Number(row.exam || 0)) || ''} readOnly className="border p-2 rounded w-full md:w-16 bg-gray-100" />
+                            </td>
+                            <td className="py-2 px-2 md:px-4">
+                              <input type="text" value={row.grade || ''} onChange={e => handleBatchRowChange(idx, 'grade', e.target.value)} className="border p-2 rounded w-full md:w-16" />
+                            </td>
+                            <td className="py-2 px-2 md:px-4">
+                              <input type="text" value={row.remark || ''} onChange={e => handleBatchRowChange(idx, 'remark', e.target.value)} className="border p-2 rounded w-full md:w-24" />
                             </td>
                             <td className="py-2 px-2 md:px-4">
                               <button className="text-red-600 hover:underline w-full md:w-auto" onClick={() => handleRemoveBatchRow(idx)}>Remove</button>

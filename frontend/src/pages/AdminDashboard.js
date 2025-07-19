@@ -31,7 +31,7 @@ export default function AdminDashboard() {
   // Add/Edit Students state
   const [selectedClass, setSelectedClass] = useState('');
   const [students, setStudents] = useState([]);
-  const [studentForm, setStudentForm] = useState({ fullname: '', student_id: '', password: '', editId: null });
+  const [studentForm, setStudentForm] = useState({ fullname: '', student_id: '', password: '', editId: null, photo: null });
   const [studentMsg, setStudentMsg] = useState('');
 
   // Manage Teachers state
@@ -54,6 +54,7 @@ export default function AdminDashboard() {
   // View Result History state
   const [results, setResults] = useState([]);
   const [historyFilters, setHistoryFilters] = useState({ student_id: '', class: '', term: '', session: '' });
+  const [remark, setRemark] = useState('');
 
   // Fetch classes on mount
   useEffect(() => {
@@ -116,6 +117,18 @@ export default function AdminDashboard() {
     }
   }, [activePanel, historyFilters]);
 
+  // Fetch remark for the first student in results when results change in history panel
+  useEffect(() => {
+    if (activePanel === 'history' && results.length > 0) {
+      const r = results[0];
+      axios.get(`http://localhost:5000/api/remarks?student_id=${r.student_id}&class=${r.class}&term=${r.term}&session=${r.session}`)
+        .then(res => setRemark(res.data?.remark || ''))
+        .catch(() => setRemark(''));
+    } else {
+      setRemark('');
+    }
+  }, [activePanel, results]);
+
   // Handlers for Upload Result
   const handleUpload = async () => {
     if (!csvFile || !form.class) {
@@ -151,7 +164,12 @@ export default function AdminDashboard() {
       return;
     }
     try {
-      await axios.post('http://localhost:5000/api/results/manual', form);
+      await axios.post('http://localhost:5000/api/results/manual', {
+        ...form,
+        ca1: form.ca1 || 0,
+        ca2: form.ca2 || 0,
+        ca3: form.ca3 || 0,
+      });
       setMessage('Result added!');
       setForm({ ...form, subject: '', score: '', grade: '' });
     } catch (err) {
@@ -204,14 +222,15 @@ export default function AdminDashboard() {
       return;
     }
     try {
-      await axios.post('http://localhost:5000/api/admin/students', {
-        fullname: studentForm.fullname,
-        student_id: studentForm.student_id,
-        class: selectedClass,
-        password: studentForm.password,
-      });
+      const formData = new FormData();
+      formData.append('fullname', studentForm.fullname);
+      formData.append('student_id', studentForm.student_id);
+      formData.append('class', selectedClass);
+      formData.append('password', studentForm.password);
+      if (studentForm.photo) formData.append('photo', studentForm.photo);
+      await axios.post('http://localhost:5000/api/admin/students', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       setStudentMsg('Student added!');
-      setStudentForm({ fullname: '', student_id: '', password: '', editId: null });
+      setStudentForm({ fullname: '', student_id: '', password: '', editId: null, photo: null });
       // Refresh student list
       const res = await axios.get(`http://localhost:5000/api/admin/students?class=${selectedClass}`);
       setStudents(res.data);
@@ -221,20 +240,21 @@ export default function AdminDashboard() {
   };
 
   const handleEditStudent = (student) => {
-    setStudentForm({ fullname: student.fullname, student_id: student.student_id, password: '', editId: student.id });
+    setStudentForm({ fullname: student.fullname, student_id: student.student_id, password: '', editId: student.id, photo: null });
   };
 
   const handleUpdateStudent = async (e) => {
     e.preventDefault();
     if (!studentForm.editId || !studentForm.fullname) return;
     try {
-      await axios.put(`http://localhost:5000/api/admin/students/${studentForm.editId}`, {
-        fullname: studentForm.fullname,
-        class: selectedClass,
-        password: studentForm.password || undefined, // Only send if not blank
-      });
+      const formData = new FormData();
+      formData.append('fullname', studentForm.fullname);
+      formData.append('class', selectedClass);
+      if (studentForm.password) formData.append('password', studentForm.password);
+      if (studentForm.photo) formData.append('photo', studentForm.photo);
+      await axios.put(`http://localhost:5000/api/admin/students/${studentForm.editId}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       setStudentMsg('Student updated!');
-      setStudentForm({ fullname: '', student_id: '', password: '', editId: null });
+      setStudentForm({ fullname: '', student_id: '', password: '', editId: null, photo: null });
       // Refresh student list
       const res = await axios.get(`http://localhost:5000/api/admin/students?class=${selectedClass}`);
       setStudents(res.data);
@@ -384,7 +404,7 @@ export default function AdminDashboard() {
             </div>
             {selectedClass && (
               <>
-                <form onSubmit={studentForm.editId ? handleUpdateStudent : handleAddStudent} className="flex gap-2 mb-4 flex-wrap">
+                <form onSubmit={studentForm.editId ? handleUpdateStudent : handleAddStudent} className="flex flex-col gap-2">
                   <input type="text" name="fullname" value={studentForm.fullname} onChange={handleStudentFormChange} placeholder="Full Name" className="border p-2 rounded w-full md:w-48" required />
                   <input type="text" name="student_id" value={studentForm.student_id} onChange={handleStudentFormChange} placeholder="Student ID" className="border p-2 rounded w-full md:w-32" required disabled={!!studentForm.editId} />
                   {studentForm.editId ? (
@@ -399,6 +419,7 @@ export default function AdminDashboard() {
                   ) : (
                     <input type="password" name="password" value={studentForm.password} onChange={handleStudentFormChange} placeholder="Password" className="border p-2 rounded w-full md:w-32" required />
                   )}
+                  <input type="file" name="photo" accept="image/*" onChange={e => setStudentForm({ ...studentForm, photo: e.target.files[0] })} className="border p-2 rounded" />
                   <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold w-full md:w-auto">{studentForm.editId ? 'Update' : 'Add'}</button>
                   {studentMsg && <span className="text-green-700 ml-2">{studentMsg}</span>}
                 </form>
@@ -444,7 +465,7 @@ export default function AdminDashboard() {
             </div>
             <div className="bg-white rounded shadow p-6 max-w-xl">
               <h3 className="font-bold mb-2 text-green-700">Add Dummy Result (Manual Entry)</h3>
-              <form onSubmit={handleFormSubmit} className="space-y-3">
+              <form onSubmit={handleFormSubmit} className="flex flex-col gap-2">
                 <select name="class" value={form.class} onChange={handleFormChange} className="border p-2 rounded w-full" required>
                   <option value="">Select Class</option>
                   {classes.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
@@ -455,6 +476,9 @@ export default function AdminDashboard() {
                 <input type="text" name="grade" value={form.grade} onChange={handleFormChange} placeholder="Grade (A/B/C/D/F)" className="w-full p-2 border rounded" required />
                 <input type="text" name="term" value={form.term} onChange={handleFormChange} placeholder="Term" className="w-full p-2 border rounded" />
                 <input type="text" name="session" value={form.session} onChange={handleFormChange} placeholder="Session" className="w-full p-2 border rounded" />
+                <input type="number" name="ca1" value={form.ca1 || ''} onChange={handleFormChange} placeholder="CA1" className="border p-2 rounded" />
+                <input type="number" name="ca2" value={form.ca2 || ''} onChange={handleFormChange} placeholder="CA2" className="border p-2 rounded" />
+                <input type="number" name="ca3" value={form.ca3 || ''} onChange={handleFormChange} placeholder="CA3" className="border p-2 rounded" />
                 <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold w-full md:w-auto">Add Result</button>
               </form>
               {message && <div className="mt-2 text-sm text-green-700">{message}</div>}
@@ -534,6 +558,12 @@ export default function AdminDashboard() {
               <input type="text" name="term" value={historyFilters.term} onChange={handleHistoryFilterChange} placeholder="Term" className="border p-2 rounded w-full md:w-24" />
               <input type="text" name="session" value={historyFilters.session} onChange={handleHistoryFilterChange} placeholder="Session" className="border p-2 rounded w-full md:w-24" />
             </div>
+            {remark && (
+              <div className="mb-4 p-3 bg-green-50 rounded border border-green-200">
+                <strong>Teacher's Remark:</strong>
+                <div>{remark}</div>
+              </div>
+            )}
             <div className="overflow-x-auto">
             <table className="min-w-[600px] bg-green-50 rounded">
               <thead className="bg-green-200">
@@ -541,7 +571,11 @@ export default function AdminDashboard() {
                   <th className="py-2 px-4 text-left text-green-900">Student ID</th>
                   <th className="py-2 px-4 text-left text-green-900">Class</th>
                   <th className="py-2 px-4 text-left text-green-900">Subject</th>
-                  <th className="py-2 px-4 text-left text-green-900">Score</th>
+                  <th className="py-2 px-4 text-left text-green-900">CA1</th>
+                  <th className="py-2 px-4 text-left text-green-900">CA2</th>
+                  <th className="py-2 px-4 text-left text-green-900">CA3</th>
+                  <th className="py-2 px-4 text-left text-green-900">Exam</th>
+                  <th className="py-2 px-4 text-left text-green-900">Total</th>
                   <th className="py-2 px-4 text-left text-green-900">Grade</th>
                   <th className="py-2 px-4 text-left text-green-900">Term</th>
                   <th className="py-2 px-4 text-left text-green-900">Session</th>
@@ -553,7 +587,11 @@ export default function AdminDashboard() {
                     <td className="py-2 px-4">{r.student_id}</td>
                     <td className="py-2 px-4">{r.class}</td>
                     <td className="py-2 px-4">{r.subject}</td>
+                    <td className="py-2 px-4">{r.ca1}</td>
+                    <td className="py-2 px-4">{r.ca2}</td>
+                    <td className="py-2 px-4">{r.ca3}</td>
                     <td className="py-2 px-4">{r.score}</td>
+                    <td className="py-2 px-4">{(Number(r.ca1 || 0) + Number(r.ca2 || 0) + Number(r.ca3 || 0) + Number(r.score || 0))}</td>
                     <td className="py-2 px-4">{r.grade}</td>
                     <td className="py-2 px-4">{r.term}</td>
                     <td className="py-2 px-4">{r.session}</td>

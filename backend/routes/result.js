@@ -16,8 +16,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       const db = await openDb();
       for (const row of fileRows) {
         await db.run(
-          'INSERT INTO results (student_id, subject, score, grade, term, session) VALUES (?, ?, ?, ?, ?, ?)',
-          [row.student_id, row.subject, row.score, row.grade, row.term, row.session]
+          'INSERT INTO results (student_id, subject, ca1, ca2, ca3, score, grade, term, session) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [row.student_id, row.subject, row.ca1 || 0, row.ca2 || 0, row.ca3 || 0, row.score, row.grade, row.term, row.session]
         );
       }
       fs.unlinkSync(req.file.path);
@@ -26,11 +26,11 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 });
 
 router.post('/manual', async (req, res) => {
-  const { student_id, subject, score, grade, term, session } = req.body;
+  const { student_id, subject, ca1 = 0, ca2 = 0, ca3 = 0, score, grade, term, session } = req.body;
   const db = await openDb();
   await db.run(
-    'INSERT INTO results (student_id, subject, score, grade, term, session) VALUES (?, ?, ?, ?, ?, ?)',
-    [student_id, subject, score, grade, term, session]
+    'INSERT INTO results (student_id, subject, ca1, ca2, ca3, score, grade, term, session) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [student_id, subject, ca1, ca2, ca3, score, grade, term, session]
   );
   res.json({ message: 'Result added' });
 });

@@ -20,6 +20,7 @@ export default function StudentDashboard() {
   const [student, setStudent] = useState({});
   const [term, setTerm] = useState('2nd Term');
   const [session, setSession] = useState('2024/25');
+  const [teacherRemark, setTeacherRemark] = useState('');
 
   useEffect(() => {
     // Get student info from localStorage
@@ -40,6 +41,10 @@ export default function StudentDashboard() {
         setResults([]);
         console.error(err);
       });
+    // Fetch teacher's remark
+    axios.get(`http://localhost:5000/api/remarks?student_id=${studentObj.student_id}&class=${studentObj.class}&term=${term}&session=${session}`)
+      .then(res => setTeacherRemark(res.data?.remark || ''))
+      .catch(() => setTeacherRemark(''));
   }, [term, session]);
 
   const total = results.reduce((sum, r) => sum + Number(r.score), 0);
@@ -55,9 +60,17 @@ export default function StudentDashboard() {
       {/* Header Bar */}
       <header className="bg-green-700 text-white flex items-center justify-between px-8 py-4 shadow">
         <div className="flex items-center gap-4">
-          <div className="bg-white text-green-700 rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold border-2 border-green-300">
-            {initials}
-          </div>
+          {student.photo ? (
+            <img
+              src={`http://localhost:5000/${student.photo.replace('backend/', '')}`}
+              alt="Passport"
+              className="w-16 h-16 rounded object-cover border-2 border-green-300 bg-white"
+            />
+          ) : (
+            <div className="bg-white text-green-700 rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold border-2 border-green-300">
+              {initials}
+            </div>
+          )}
           <div>
             <div className="font-bold text-lg flex items-center gap-2">
               Welcome, {student.fullname} <span className="text-green-200 text-sm">({student.class})</span>
@@ -104,6 +117,12 @@ export default function StudentDashboard() {
         </div>
 
         {/* Results Table */}
+        {teacherRemark && (
+          <div className="mb-4 p-3 bg-green-50 rounded border border-green-200">
+            <strong>Teacher's Remark:</strong>
+            <div>{teacherRemark}</div>
+          </div>
+        )}
         <div className="bg-white rounded shadow overflow-x-auto">
           <table className="min-w-full">
             <thead className="bg-green-200">
@@ -126,7 +145,8 @@ export default function StudentDashboard() {
         </div>
 
         {/* Download Button */}
-        <div className="flex justify-end mt-6">
+        <div className="flex flex-col items-center mt-6">
+          <img src="/images.jpg" alt="School Logo" className="w-24 h-24 object-contain mb-2" />
           <button
             className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-semibold shadow"
             onClick={() => window.open(`http://localhost:5000/api/student/${student.student_id}/result/pdf?term=${term}&session=${session}`)}
