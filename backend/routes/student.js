@@ -9,7 +9,7 @@ router.get('/:student_id/result', async (req, res) => {
   const { term, session } = req.query;
   const db = await openDb();
   const results = await db.all(
-    'SELECT * FROM results WHERE student_id = ? AND term = ? AND session = ?',
+    'SELECT * FROM results WHERE student_id = ? AND term = ? AND session = ? AND approved = 1',
     [student_id, term, session]
   );
   res.json(results);

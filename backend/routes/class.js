@@ -15,4 +15,15 @@ router.post('/', async (req, res) => {
   res.json({ message: 'Class added' });
 });
 
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  const db = await openDb();
+  const result = await db.run('DELETE FROM classes WHERE id = ?', [id]);
+  if (result.changes > 0) {
+    res.json({ message: 'Class deleted' });
+  } else {
+    res.status(404).json({ message: 'Class not found' });
+  }
+});
+
 export default router; 

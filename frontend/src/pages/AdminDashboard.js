@@ -56,6 +56,9 @@ export default function AdminDashboard() {
   const [historyFilters, setHistoryFilters] = useState({ student_id: '', class: '', term: '', session: '' });
   const [remark, setRemark] = useState('');
 
+  // Add after other useState imports
+  const [pendingStudents, setPendingStudents] = useState([]);
+
   // Fetch classes on mount
   useEffect(() => {
     axios.get('http://localhost:5000/api/classes')
@@ -128,6 +131,13 @@ export default function AdminDashboard() {
       setRemark('');
     }
   }, [activePanel, results]);
+
+  // Fetch pending students on mount
+  useEffect(() => {
+    axios.get('http://localhost:5000/api/admin/pending-students')
+      .then(res => setPendingStudents(res.data))
+      .catch(() => setPendingStudents([]));
+  }, []);
 
   // Handlers for Upload Result
   const handleUpload = async () => {
@@ -388,6 +398,17 @@ export default function AdminDashboard() {
     setHistoryFilters({ ...historyFilters, [e.target.name]: e.target.value });
   };
 
+  const approveResults = (student_id, term, session) => {
+    axios.post('http://localhost:5000/api/admin/approve-student-results', { student_id, term, session })
+      .then(() => {
+        setPendingStudents(pendingStudents.filter(
+          s => !(s.student_id === student_id && s.term === term && s.session === session)
+        ));
+        alert('Results approved!');
+      })
+      .catch(() => alert('Failed to approve results.'));
+  };
+
   // Dummy panels for demonstration
   const renderPanel = () => {
     switch (activePanel) {
@@ -577,6 +598,7 @@ export default function AdminDashboard() {
                   <th className="py-2 px-4 text-left text-green-900">Exam</th>
                   <th className="py-2 px-4 text-left text-green-900">Total</th>
                   <th className="py-2 px-4 text-left text-green-900">Grade</th>
+                  <th className="py-2 px-4 text-left text-green-900">Remark</th>
                   <th className="py-2 px-4 text-left text-green-900">Term</th>
                   <th className="py-2 px-4 text-left text-green-900">Session</th>
                 </tr>
@@ -593,6 +615,7 @@ export default function AdminDashboard() {
                     <td className="py-2 px-4">{r.score}</td>
                     <td className="py-2 px-4">{(Number(r.ca1 || 0) + Number(r.ca2 || 0) + Number(r.ca3 || 0) + Number(r.score || 0))}</td>
                     <td className="py-2 px-4">{r.grade}</td>
+                    <td className="py-2 px-4">{r.remark}</td>
                     <td className="py-2 px-4">{r.term}</td>
                     <td className="py-2 px-4">{r.session}</td>
                   </tr>
@@ -706,6 +729,44 @@ export default function AdminDashboard() {
         </h2>
         <div className="overflow-x-auto">
         {renderPanel()}
+        </div>
+        <div className="mt-12">
+          <h2 className="text-xl font-bold mb-4">Pending Results Approval</h2>
+          <div className="bg-white rounded shadow p-4 mb-8">
+            {pendingStudents.length === 0 ? (
+              <div className="text-green-700">No pending results to approve.</div>
+            ) : (
+              <table className="min-w-full">
+                <thead>
+                  <tr>
+                    <th className="py-2 px-4 text-left">Student</th>
+                    <th className="py-2 px-4 text-left">Class</th>
+                    <th className="py-2 px-4 text-left">Term</th>
+                    <th className="py-2 px-4 text-left">Session</th>
+                    <th className="py-2 px-4 text-left">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingStudents.map(s => (
+                    <tr key={s.student_id + s.term + s.session}>
+                      <td className="py-2 px-4">{s.fullname}</td>
+                      <td className="py-2 px-4">{s.class}</td>
+                      <td className="py-2 px-4">{s.term}</td>
+                      <td className="py-2 px-4">{s.session}</td>
+                      <td className="py-2 px-4">
+                        <button
+                          className="bg-green-600 hover:bg-green-800 text-white px-3 py-1 rounded"
+                          onClick={() => approveResults(s.student_id, s.term, s.session)}
+                        >
+                          Approve Results
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </main>
     </div>

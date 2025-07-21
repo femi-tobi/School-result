@@ -85,4 +85,36 @@ router.delete('/students/:id', async (req, res) => {
   res.json({ message: 'Student deleted' });
 });
 
+// Get students with unapproved results
+router.get('/pending-students', async (req, res) => {
+  const db = await openDb();
+  try {
+    const rows = await db.all(`
+      SELECT r.student_id, s.fullname, s.class, r.term, r.session
+      FROM results r
+      JOIN students s ON r.student_id = s.student_id
+      WHERE r.approved = 0
+      GROUP BY r.student_id, r.term, r.session
+    `);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ message: 'DB error' });
+  }
+});
+
+// Approve all results for a student for a term/session
+router.post('/approve-student-results', async (req, res) => {
+  const { student_id, term, session } = req.body;
+  const db = await openDb();
+  try {
+    await db.run(
+      'UPDATE results SET approved = 1 WHERE student_id = ? AND term = ? AND session = ?',
+      [student_id, term, session]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: 'DB error' });
+  }
+});
+
 export default router; 

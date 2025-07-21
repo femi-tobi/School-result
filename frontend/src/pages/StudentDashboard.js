@@ -55,6 +55,9 @@ export default function StudentDashboard() {
   // Avatar initials
   const initials = student.fullname ? student.fullname.split(' ').map(n => n[0]).join('').toUpperCase() : '';
 
+  // Debug log for results
+  console.log('Student results:', results);
+
   return (
     <div className="min-h-screen bg-green-50">
       {/* Header Bar */}
@@ -117,32 +120,49 @@ export default function StudentDashboard() {
         </div>
 
         {/* Results Table */}
-        {teacherRemark && (
-          <div className="mb-4 p-3 bg-green-50 rounded border border-green-200">
-            <strong>Teacher's Remark:</strong>
-            <div>{teacherRemark}</div>
+        {results.length === 0 ? (
+          <div className="text-center text-red-600 font-bold my-8">
+            Your results are pending approval by the admin. Please check back later.
+          </div>
+        ) : (
+          <div className="bg-white rounded shadow overflow-x-auto">
+            <table className="min-w-full">
+              <thead className="bg-green-200">
+                <tr>
+                  <th className="py-2 px-4 text-left text-green-900">Subject</th>
+                  <th className="py-2 px-4 text-left text-green-900">CA1</th>
+                  <th className="py-2 px-4 text-left text-green-900">CA2</th>
+                  <th className="py-2 px-4 text-left text-green-900">CA3</th>
+                  <th className="py-2 px-4 text-left text-green-900">Exam</th>
+                  <th className="py-2 px-4 text-left text-green-900">Total</th>
+                  <th className="py-2 px-4 text-left text-green-900">Grade</th>
+                  <th className="py-2 px-4 text-left text-green-900">Remark</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r, i) => {
+                  const ca1 = Number(r.ca1) || 0;
+                  const ca2 = Number(r.ca2) || 0;
+                  const ca3 = Number(r.ca3) || 0;
+                  const exam = Number(r.score) || 0;
+                  const total = ca1 + ca2 + ca3 + exam;
+                  return (
+                    <tr key={r.subject} className={i % 2 === 0 ? 'bg-green-50' : ''}>
+                      <td className="py-2 px-4">{r.subject}</td>
+                      <td className="py-2 px-4">{r.ca1}</td>
+                      <td className="py-2 px-4">{r.ca2}</td>
+                      <td className="py-2 px-4">{r.ca3}</td>
+                      <td className="py-2 px-4">{r.score}</td>
+                      <td className="py-2 px-4">{total}</td>
+                      <td className={`py-2 px-4 ${gradeColor(r.grade)}`}>{r.grade}</td>
+                      <td className="py-2 px-4">{r.remark}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
-        <div className="bg-white rounded shadow overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="bg-green-200">
-              <tr>
-                <th className="py-2 px-4 text-left text-green-900">Subject</th>
-                <th className="py-2 px-4 text-left text-green-900">Score</th>
-                <th className="py-2 px-4 text-left text-green-900">Grade</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((r, i) => (
-                <tr key={r.subject} className={i % 2 === 0 ? 'bg-green-50' : ''}>
-                  <td className="py-2 px-4">{r.subject}</td>
-                  <td className="py-2 px-4">{r.score}</td>
-                  <td className={`py-2 px-4 ${gradeColor(r.grade)}`}>{r.grade}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
 
         {/* Download Button */}
         <div className="flex flex-col items-center mt-6">
