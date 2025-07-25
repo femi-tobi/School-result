@@ -1,6 +1,7 @@
 import express from 'express';
 import { openDb } from '../db.js';
 import PDFDocument from 'pdfkit';
+import path from 'path';
 
 const router = express.Router();
 
@@ -26,12 +27,23 @@ router.get('/:student_id/result/pdf', async (req, res) => {
   const student = await db.get('SELECT * FROM students WHERE student_id = ?', [student_id]);
 
   // School logo path (user provided)
-  const logoPath = 'backend/images.jpg';
+  const logoPath = path.join(__dirname, 'images.jpg');
 
   // Generate PDF
   const doc = new PDFDocument({ margin: 30, size: 'A4' });
   res.setHeader('Content-Type', 'application/pdf');
   doc.pipe(res);
+
+  // Add watermark logo before any other drawing
+  doc.save();
+  doc.opacity(0.10); // Set low opacity for watermark
+  const watermarkWidth = 400; // Adjust as needed
+  const watermarkHeight = 400; // Adjust as needed
+  const centerX = (doc.page.width - watermarkWidth) / 2;
+  const centerY = (doc.page.height - watermarkHeight) / 2;
+  doc.image(logoPath, centerX, centerY, { width: watermarkWidth, height: watermarkHeight });
+  doc.opacity(1); // Reset opacity for normal drawing
+  doc.restore();
 
   // HEADER SECTION
   // Draw school logo
@@ -124,16 +136,36 @@ doc.moveTo(colX[colX.length - 1], tableStartY).lineTo(colX[colX.length - 1], fir
 for (let i = 0; i < colX.length; i++) {
   doc.moveTo(colX[i], firstHeaderBottomY).lineTo(colX[i], tableStartY + headerRowHeight * 2 + rowHeight * numRows).stroke();
 }
-// Add a single vertical stroke before the previous terms summaries
-// (at colX[9], from the second header row downward)
-doc.moveTo(colX[9], firstHeaderBottomY).lineTo(colX[9], tableStartY + headerRowHeight * 2 + rowHeight * numRows).stroke();
 // Draw horizontal lines for the second header row and data rows
 for (let r = 1; r <= 2; r++) {
   doc.moveTo(colX[0], tableStartY + r * headerRowHeight).lineTo(colX[colX.length - 1], tableStartY + r * headerRowHeight).stroke();
 }
-for (let r = 0; r <= numRows; r++) {
+// Draw the first data row horizontal line only from colX[1] to the end
+doc.moveTo(colX[1], dataStartY).lineTo(colX[colX.length - 1], dataStartY).stroke();
+// Draw the rest of the data row horizontal lines as usual
+for (let r = 1; r <= numRows; r++) {
   doc.moveTo(colX[0], dataStartY + r * rowHeight).lineTo(colX[colX.length - 1], dataStartY + r * rowHeight).stroke();
 }
+// Draw a less bold vertical line before the previous terms summaries (at colX[9])
+doc.save();
+doc.lineWidth(1.2);
+doc.moveTo(colX[9], tableStartY).lineTo(colX[9], tableStartY + headerRowHeight * 2 + rowHeight * numRows).stroke();
+doc.restore();
+// Draw a less bold vertical line before the TOTAL MARK OBTAINED (Exams & CA) OVER 100% column (at colX[6])
+doc.save();
+doc.lineWidth(1.2);
+doc.moveTo(colX[6], tableStartY).lineTo(colX[6], tableStartY + headerRowHeight * 2 + rowHeight * numRows).stroke();
+doc.restore();
+// Draw a less bold vertical line at the start of the CA columns (at colX[1])
+doc.save();
+doc.lineWidth(1.2);
+doc.moveTo(colX[1], tableStartY).lineTo(colX[1], tableStartY + headerRowHeight * 2 + rowHeight * numRows).stroke();
+doc.restore();
+// Draw a less bold vertical line at the end of the CA columns (at colX[5])
+doc.save();
+doc.lineWidth(1.2);
+doc.moveTo(colX[5], tableStartY).lineTo(colX[5], tableStartY + headerRowHeight * 2 + rowHeight * numRows).stroke();
+doc.restore();
 
 // Vertical 'SUBJECTS' header (centered in header area)
 doc.save();
