@@ -84,38 +84,65 @@ router.get('/:student_id/result/pdf', async (req, res) => {
   // Move doc.y to below info section
   doc.y = infoY + 30;
 
-  // === MAIN RESULT TABLE ===
-  // Define columns (x positions) - first column is for SUBJECTS header and subject names
-  const colX = [40, 120, 160, 200, 240, 280, 330, 380, 440, 500, 560, 620];
-  const rowHeight = 20;
-  const tableStartY = doc.y + 10;
-  // Draw vertical 'SUBJECTS' header in the first column
+// === MAIN RESULT TABLE ===
+const margin = 30;
+const colWidths = [
+  80, // SUBJECTS
+  40, // CA1
+  40, // CA2
+  40, // CA3
+  50, // CA Total
+  50, // Exam
+  50, // Total
+  40, // Grade
+  80, // Remark
+  60, // Prev Term 1
+  60, // Prev Term 2
+  60  // Cumulative
+];
+const colX = [margin];
+for (let i = 0; i < colWidths.length; i++) {
+  colX.push(colX[i] + colWidths[i]);
+}
+const rowHeight = 20;
+const tableStartY = doc.y + 10;
+
+// Vertical 'SUBJECTS' header
+doc.save();
+doc.font('Helvetica-Bold').fontSize(13);
+doc.rotate(-90, { origin: [colX[0] + colWidths[0] / 2, tableStartY + 120] });
+doc.text('SUBJECTS', colX[0] + colWidths[0] / 2, tableStartY + 120, { align: 'center', width: 80 });
+doc.restore();
+
+// Grouped headers
+doc.font('Helvetica-Bold').fontSize(10);
+doc.text('SUMMARY OF CONTINUOUS\nASSESSMENT TEST', colX[1], tableStartY, { width: colX[5] - colX[1], align: 'center' });
+doc.text('SUMMARY OF TERMS WORK', colX[5], tableStartY, { width: colX[9] - colX[5], align: 'center' });
+doc.text('PREVIOUS TERMS SUMMARIES', colX[9], tableStartY, { width: colX[12] - colX[9], align: 'center' });
+
+// Rotated headers for CA columns
+const headerLabels = [
+  'FIRST SUMMARY\n(1ST C.A. Obtainable = 20%)',
+  'SECOND SUMMARY\n(2ND + 3RD C.A. Obtainable = 20%)',
+  'THIRD SUMMARY\n(3RD C.A. Obtainable = 20%)',
+  'TOTAL (first & second SUMMARY)',
+  'EXAM SCORE (marks Obtainable = 60%)',
+  'TOTAL MARK OBTAINED (Exams & CA) OVER 100%',
+  'GRADE SCORE',
+  'GRADE REMARKS'
+];
+for (let i = 1; i <= 4; i++) {
   doc.save();
-  doc.font('Helvetica-Bold').fontSize(13);
-  doc.rotate(-90, { origin: [colX[0] + 30, tableStartY + 120] });
-  doc.text('SUBJECTS', colX[0] + 30, tableStartY + 120, { align: 'center', width: 80 });
+  doc.font('Helvetica-Bold').fontSize(8);
+  doc.rotate(-60, { origin: [colX[i] + colWidths[i] / 2, tableStartY + 30] });
+  doc.text(headerLabels[i - 1], colX[i] + colWidths[i] / 2, tableStartY + 30, { width: 60, align: 'left' });
   doc.restore();
-  // Draw summary headers (spanning columns)
-  doc.font('Helvetica-Bold').fontSize(10);
-  doc.text('SUMMARY OF CONTINUOUS', colX[1], tableStartY, { width: colX[6] - colX[1], align: 'center' });
-  doc.text('SUMMARY OF TERMS WORK', colX[6], tableStartY, { width: colX[9] - colX[6], align: 'center' });
-  doc.text('PREVIOUS TERMS SUMMARIES', colX[9], tableStartY, { width: colX[11] - colX[9], align: 'center' });
-  // Draw rotated headers for CA1, CA2, CA3, etc.
-  const headerLabels = ['FIRST SUMMARY TEST (1st CA)', 'SECOND SUMMARY (2nd CA)', 'THIRD SUMMARY (3rd CA)', 'TOTAL MARK (1st + 2nd + 3rd)', 'EXAM', 'TOTAL', 'GRADE', 'GRADED REMARKS'];
-  for (let i = 1; i <= 8; i++) {
-    if (i <= 4) {
-      // Rotated header
-      doc.save();
-      doc.font('Helvetica-Bold').fontSize(8);
-      doc.rotate(-60, { origin: [colX[i] + 10, tableStartY + rowHeight + 5] });
-      doc.text(headerLabels[i - 1], colX[i] + 10, tableStartY + rowHeight + 5, { width: 60, align: 'left' });
-      doc.restore();
-    } else {
-      // Horizontal header
-      doc.font('Helvetica-Bold').fontSize(8);
-      doc.text(headerLabels[i - 1], colX[i], tableStartY + rowHeight, { width: colX[i + 1] - colX[i], align: 'center' });
-    }
-  }
+}
+// Horizontal headers for the rest
+for (let i = 5; i <= 8; i++) {
+  doc.font('Helvetica-Bold').fontSize(8);
+  doc.text(headerLabels[i - 1], colX[i], tableStartY + 20, { width: colX[i + 1] - colX[i], align: 'center' });
+}
   // Draw grid lines for main table
   const numRows = results.length + 2; // +2 for headers
   for (let i = 0; i < colX.length; i++) {
@@ -168,50 +195,76 @@ router.get('/:student_id/result/pdf', async (req, res) => {
 
   // === PROMOTIONAL STATUS & REMARKS SECTION ===
   let remarksY = grandTotalY + 40;
-  const remarksWidth = colX[9] - colX[0];
-  // Promotional Status
-  doc.font('Helvetica-Bold').rect(colX[0], remarksY, remarksWidth, 20).stroke();
-  doc.text('Promotional Status:', colX[0] + 5, remarksY + 5, { continued: true }).font('Helvetica').text('Passed');
-  // Class Teacher's Remark
-  remarksY += 20;
-  doc.font('Helvetica-Bold').rect(colX[0], remarksY, remarksWidth, 30).stroke();
-  doc.text("Class Teacher's Remark:", colX[0] + 5, remarksY + 5, { continued: true }).font('Helvetica').text('OLUMATOVIN you have a very good result, you have really done well. Please brace up more for a richer performance next term. See you at the top.');
-  // Head Teacher's Remark
-  remarksY += 30;
-  doc.font('Helvetica-Bold').rect(colX[0], remarksY, remarksWidth, 30).stroke();
-  doc.text("Head Teacher's Remark:", colX[0] + 5, remarksY + 5, { continued: true }).font('Helvetica').text('Commendable result indeed, you have very large room to perform better. OLUMATOVIN MORE! MORE!');
+  const remarksWidth = pageWidth - 180 - colX[0]; // 180 = grading table width + margin
+  const remarksYStart = grandTotalY + 30;
 
-  // === KEY TO GRADING TABLE (bottom right) ===
-  const gradingKey = [
-    ['A1', '75%-100%'],
-    ['B2', '70%-74.9%'],
-    ['B3', '65%-69.9%'],
-    ['C6', '60%-64.9%'],
-    ['D7', '55%-59.9%'],
-    ['E8', '50%-54.9%'],
-    ['F9', '0%-49.9%']
-  ];
-  const keyTableX = colX[9] + 10;
-  const keyTableY = grandTotalY + 10;
-  const keyColWidths = [40, 80];
-  doc.font('Helvetica-Bold').fontSize(11).text('KEY TO GRADING', keyTableX, keyTableY, { width: keyColWidths[0] + keyColWidths[1], align: 'center' });
-  // Draw header
-  const keyHeaderY = keyTableY + 18;
-  doc.font('Helvetica-Bold').fontSize(10);
-  doc.text('Grade', keyTableX, keyHeaderY, { width: keyColWidths[0], align: 'center' });
-  doc.text('Range', keyTableX + keyColWidths[0], keyHeaderY, { width: keyColWidths[1], align: 'center' });
-  // Draw header box
-  doc.rect(keyTableX, keyHeaderY - 3, keyColWidths[0] + keyColWidths[1], 18).stroke();
-  // Draw rows
-  let keyY = keyHeaderY + 15;
-  doc.font('Helvetica').fontSize(10);
-  gradingKey.forEach(row => {
-    doc.rect(keyTableX, keyY, keyColWidths[0], 18).stroke();
-    doc.rect(keyTableX + keyColWidths[0], keyY, keyColWidths[1], 18).stroke();
-    doc.text(row[0], keyTableX, keyY + 3, { width: keyColWidths[0], align: 'center' });
-    doc.text(row[1], keyTableX + keyColWidths[0], keyY + 3, { width: keyColWidths[1], align: 'center' });
-    keyY += 18;
-  });
+// Promotional Status
+doc.font('Helvetica-Bold').rect(colX[0], remarksY, remarksWidth, 20).stroke();
+doc.fontSize(10).text('Promotional Status:', colX[0] + 5, remarksY + 5, { continued: true })
+   .font('Helvetica').text('Passed');
+
+// Class Teacher's Remark
+remarksY += 20;
+const classRemark = "OLUMATOVIN you have a very good result, you have really done well. Please brace up more for a richer performance next term. See you at the top.";
+doc.font('Helvetica-Bold').fontSize(9).text("Class Teacher's Remark:", colX[0] + 5, remarksY + 7);
+
+const remarkX = colX[0] + 140;
+const remarkY = remarksY + 7;
+const remarkWidth = remarksWidth - 145;
+doc.font('Helvetica').fontSize(9);
+const classRemarkHeight = doc.heightOfString(classRemark, { width: remarkWidth, align: 'left' });
+const boxHeight = Math.max(30, classRemarkHeight + 14); // 14 for padding
+doc.rect(colX[0], remarksY, remarksWidth, boxHeight).stroke();
+doc.text(classRemark, remarkX, remarkY, { width: remarkWidth, align: 'left' });
+
+// Head Teacher's Remark
+remarksY += boxHeight;
+const headRemark = "Commendable result indeed, you have very large room to perform better. OLUMATOVIN MORE! MORE!";
+doc.font('Helvetica-Bold').fontSize(9).text("Head Teacher's Remark:", colX[0] + 5, remarksY + 7);
+const headRemarkHeight = doc.heightOfString(headRemark, { width: remarkWidth, align: 'left' });
+const headBoxHeight = Math.max(30, headRemarkHeight + 14);
+doc.rect(colX[0], remarksY, remarksWidth, headBoxHeight).stroke();
+doc.font('Helvetica').fontSize(9).text(headRemark, remarkX, remarksY + 7, { width: remarkWidth, align: 'left' });
+
+ // === KEY TO GRADING TABLE (bottom right) ===
+const gradingKey = [
+  ['A1', '75%-100%'],
+  ['B2', '70%-74.9%'],
+  ['B3', '65%-69.9%'],
+  ['C6', '60%-64.9%'],
+  ['D7', '55%-59.9%'],
+  ['E8', '50%-54.9%'],
+  ['F9', '0%-49.9%']
+];
+
+// Position the table to the right of the main content but within page bounds
+// const keyTableX = Math.min(colX[9] + 10, pageWidth - 150); // Ensure it stays within page width
+// const keyTableY = grandTotalY + 10;
+const keyTableX = colX[0] + remarksWidth + 20; // 20px margin between remarks and grading
+const keyTableY = remarksYStart;
+const keyColWidths = [40, 80];
+
+doc.font('Helvetica-Bold').fontSize(10).text('KEY TO GRADING', keyTableX, keyTableY, { width: keyColWidths[0] + keyColWidths[1], align: 'center' });
+
+// Draw header
+const keyHeaderY = keyTableY + 18;
+doc.font('Helvetica-Bold').fontSize(10);
+doc.text('Grade', keyTableX, keyHeaderY, { width: keyColWidths[0], align: 'center' });
+doc.text('Range', keyTableX + keyColWidths[0], keyHeaderY, { width: keyColWidths[1], align: 'center' });
+
+// Draw header box
+doc.rect(keyTableX, keyHeaderY - 3, keyColWidths[0] + keyColWidths[1], 18).stroke();
+
+// Draw rows
+let keyY = keyHeaderY + 15;
+doc.font('Helvetica').fontSize(10);
+gradingKey.forEach(row => {
+  doc.rect(keyTableX, keyY, keyColWidths[0], 18).stroke();
+  doc.rect(keyTableX + keyColWidths[0], keyY, keyColWidths[1], 18).stroke();
+  doc.text(row[0], keyTableX, keyY + 3, { width: keyColWidths[0], align: 'center' });
+  doc.text(row[1], keyTableX + keyColWidths[0], keyY + 3, { width: keyColWidths[1], align: 'center' });
+  keyY += 18;
+});
 
   doc.end();
 });
