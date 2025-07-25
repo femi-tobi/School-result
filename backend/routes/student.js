@@ -107,20 +107,29 @@ for (let i = 0; i < colWidths.length; i++) {
 const rowHeight = 20; // Normal row height for data rows
 const headerRowHeight = 44; // Taller header row
 const tableStartY = doc.y + 10;
-
-// Draw header grid lines (using headerRowHeight)
-for (let i = 0; i < colX.length; i++) {
-  doc.moveTo(colX[i], tableStartY).lineTo(colX[i], tableStartY + headerRowHeight * 2).stroke();
-}
-for (let r = 0; r <= 2; r++) {
-  doc.moveTo(colX[0], tableStartY + r * headerRowHeight).lineTo(colX[colX.length - 1], tableStartY + r * headerRowHeight).stroke();
-}
-
-// Draw the rest of the table (data rows) using normal rowHeight, starting immediately after the header
 const numRows = results.length;
 const dataStartY = tableStartY + headerRowHeight * 2;
+
+// Draw only the outer border for the first header row
+// Top border
+doc.moveTo(colX[0], tableStartY).lineTo(colX[colX.length - 1], tableStartY).stroke();
+// Bottom border of first header row
+const firstHeaderBottomY = tableStartY + headerRowHeight;
+doc.moveTo(colX[0], firstHeaderBottomY).lineTo(colX[colX.length - 1], firstHeaderBottomY).stroke();
+// Left and right borders
+doc.moveTo(colX[0], tableStartY).lineTo(colX[0], firstHeaderBottomY).stroke();
+doc.moveTo(colX[colX.length - 1], tableStartY).lineTo(colX[colX.length - 1], firstHeaderBottomY).stroke();
+
+// Draw vertical column lines from the second header row downward
 for (let i = 0; i < colX.length; i++) {
-  doc.moveTo(colX[i], dataStartY).lineTo(colX[i], dataStartY + rowHeight * numRows).stroke();
+  doc.moveTo(colX[i], firstHeaderBottomY).lineTo(colX[i], tableStartY + headerRowHeight * 2 + rowHeight * numRows).stroke();
+}
+// Add a single vertical stroke before the previous terms summaries
+// (at colX[9], from the second header row downward)
+doc.moveTo(colX[9], firstHeaderBottomY).lineTo(colX[9], tableStartY + headerRowHeight * 2 + rowHeight * numRows).stroke();
+// Draw horizontal lines for the second header row and data rows
+for (let r = 1; r <= 2; r++) {
+  doc.moveTo(colX[0], tableStartY + r * headerRowHeight).lineTo(colX[colX.length - 1], tableStartY + r * headerRowHeight).stroke();
 }
 for (let r = 0; r <= numRows; r++) {
   doc.moveTo(colX[0], dataStartY + r * rowHeight).lineTo(colX[colX.length - 1], dataStartY + r * rowHeight).stroke();
@@ -134,14 +143,14 @@ doc.text('SUBJECTS', colX[0] + colWidths[0] / 4, tableStartY + headerRowHeight +
 doc.restore();
 
 // Grouped headers (centered in header area)
-const groupHeaderY = tableStartY;
+const groupHeaderY = tableStartY + headerRowHeight / 4; // Centered vertically in first header row
 doc.font('Helvetica-Bold').fontSize(9);
-doc.text('SUMMARY OF CONTINUOUS\nASSESSMENT TEST', colX[1], groupHeaderY, { width: colX[5] - colX[1], align: 'center' });
-doc.text('SUMMARY OF TERMS WORK', colX[5], groupHeaderY, { width: colX[9] - colX[5], align: 'center' });
+doc.text('SUMMARY OF CONTINUOUS ASSESSMENT TEST', colX[1], groupHeaderY, { width: colX[5] - colX[1], align: 'center' });
+doc.text('SUMMARY OF TERMS WORK', colX[6], groupHeaderY, { width: colX[9] - colX[6], align: 'center' });
 doc.text('PREVIOUS TERMS SUMMARIES', colX[9], groupHeaderY, { width: colX[12] - colX[9], align: 'center' });
 
-// Second header row for CA columns
-const caHeaderY = tableStartY + headerRowHeight;
+// Second header row for CA columns and PREVIOUS TERMS SUMMARIES
+const caHeaderY = tableStartY + headerRowHeight + headerRowHeight / 4; // Centered vertically in second header row
 doc.font('Helvetica-Bold').fontSize(8);
 doc.text('1ST C.A.', colX[1], caHeaderY, { width: colX[2] - colX[1], align: 'center' });
 doc.font('Helvetica').fontSize(7);
@@ -158,27 +167,16 @@ doc.font('Helvetica-Bold').fontSize(8);
 doc.text('TOTAL', colX[4], caHeaderY, { width: colX[5] - colX[4], align: 'center' });
 doc.font('Helvetica').fontSize(7);
 doc.text('first, second & third', colX[4], caHeaderY + 10, { width: colX[5] - colX[4], align: 'center' });
-// Rotated header for 'Exams summary'
-doc.save();
-doc.font('Helvetica-Bold').fontSize(10);
-doc.rotate(-90, { origin: [colX[5] + colWidths[2] / 2, tableStartY + headerRowHeight + 10] });
-doc.text('Exams\nsummary', colX[5] + colWidths[4] / 2, tableStartY + headerRowHeight + 10, { width: 60, align: 'center' });
-doc.restore();
-// Horizontal headers for the rest (centered in header area)
 doc.font('Helvetica-Bold').fontSize(8);
-doc.text('100+', colX[6], tableStartY + headerRowHeight + 10, { width: colX[7] - colX[6], align: 'center' });
-doc.text('Percent', colX[6], tableStartY + headerRowHeight + 18, { width: colX[7] - colX[6], align: 'center' });
-doc.text('GRADE SCORE', colX[7], tableStartY + headerRowHeight + 8, { width: colX[8] - colX[7], align: 'center' });
-doc.text('GRADE REMARKS', colX[8], tableStartY + headerRowHeight + 8, { width: colX[9] - colX[8], align: 'center' });
+doc.text('FIRST TERM SUMMARY', colX[9], caHeaderY, { width: colX[10] - colX[9], align: 'center' });
+doc.text('SECOND TERM SUMMARY', colX[10], caHeaderY, { width: colX[11] - colX[10], align: 'center' });
+doc.text('CUMULATIVE AVERAGE', colX[11], caHeaderY, { width: colX[12] - colX[11], align: 'center' });
+// Exams summary, TOTAL MARK, GRADE SCORE, GRADE REMARKS (already in second row)
+doc.font('Helvetica-Bold').fontSize(8);
+doc.text('100%', colX[6], caHeaderY, { width: colX[7] - colX[6], align: 'center' });
+doc.text('GRADE SCORE', colX[7], caHeaderY, { width: colX[8] - colX[7], align: 'center' });
+doc.text('GRADE REMARKS', colX[8], caHeaderY, { width: colX[9] - colX[8], align: 'center' });
 // Vertical headers for 'PREVIOUS TERMS SUMMARIES'
-const prevHeaders = ['FIRST TERM\nSUMMARY', 'SECOND TERM\nSUMMARY', 'CUMULATIVE\nAVERAGE'];
-for (let i = 9; i <= 11; i++) {
-  doc.save();
-  doc.font('Helvetica-Bold').fontSize(8);
-  doc.rotate(-90, { origin: [colX[i] + colWidths[i] / 2, tableStartY + headerRowHeight + 10] });
-  doc.text(prevHeaders[i - 9], colX[i] + colWidths[i] / 2, tableStartY + headerRowHeight + 10, { width: 60, align: 'center' });
-  doc.restore();
-}
   // Fill in subject rows
   let rowY = dataStartY; // Start from the first data row
   doc.font('Helvetica').fontSize(9);
@@ -200,10 +198,6 @@ for (let i = 9; i <= 11; i++) {
   // Draw 'Previous Terms Summaries' table to the right
   const prevX = colX[9];
   const prevY = dataStartY; // Start from the first data row
-  // doc.font('Helvetica-Bold').fontSize(8);
-  // doc.text('FIRST TERM', prevX, prevY, { width: colX[10] - prevX, align: 'center' });
-  // doc.text('SECOND TERM', prevX, prevY + rowHeight, { width: colX[10] - prevX, align: 'center' });
-  // doc.text('CUMULATIVE AVERAGE', prevX, prevY + rowHeight * 2, { width: colX[10] - prevX, align: 'center' });
   // Draw grid for previous terms
   for (let r = 0; r < 3; r++) {
     doc.moveTo(prevX, prevY + r * rowHeight).lineTo(colX[11], prevY + r * rowHeight).stroke();
