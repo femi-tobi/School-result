@@ -87,72 +87,100 @@ router.get('/:student_id/result/pdf', async (req, res) => {
 // === MAIN RESULT TABLE ===
 const margin = 30;
 const colWidths = [
-  80, // SUBJECTS
-  40, // CA1
-  40, // CA2
-  40, // CA3
-  50, // CA Total
-  50, // Exam
-  50, // Total
-  40, // Grade
-  80, // Remark
+  60, // SUBJECTS
+  35, // CA1
+  35, // CA2
+  35, // CA3
+  35, // CA Total
+  35, // Exam
+  35, // Total
+  35, // Grade
+  45, // Remark
   60, // Prev Term 1
-  60, // Prev Term 2
+  50, // Prev Term 2
   60  // Cumulative
 ];
 const colX = [margin];
 for (let i = 0; i < colWidths.length; i++) {
   colX.push(colX[i] + colWidths[i]);
 }
-const rowHeight = 20;
+const rowHeight = 20; // Normal row height for data rows
+const headerRowHeight = 44; // Taller header row
 const tableStartY = doc.y + 10;
 
-// Vertical 'SUBJECTS' header
+// Draw header grid lines (using headerRowHeight)
+for (let i = 0; i < colX.length; i++) {
+  doc.moveTo(colX[i], tableStartY).lineTo(colX[i], tableStartY + headerRowHeight * 2).stroke();
+}
+for (let r = 0; r <= 2; r++) {
+  doc.moveTo(colX[0], tableStartY + r * headerRowHeight).lineTo(colX[colX.length - 1], tableStartY + r * headerRowHeight).stroke();
+}
+
+// Draw the rest of the table (data rows) using normal rowHeight, starting immediately after the header
+const numRows = results.length;
+const dataStartY = tableStartY + headerRowHeight * 2;
+for (let i = 0; i < colX.length; i++) {
+  doc.moveTo(colX[i], dataStartY).lineTo(colX[i], dataStartY + rowHeight * numRows).stroke();
+}
+for (let r = 0; r <= numRows; r++) {
+  doc.moveTo(colX[0], dataStartY + r * rowHeight).lineTo(colX[colX.length - 1], dataStartY + r * rowHeight).stroke();
+}
+
+// Vertical 'SUBJECTS' header (centered in header area)
 doc.save();
-doc.font('Helvetica-Bold').fontSize(13);
-doc.rotate(-90, { origin: [colX[0] + colWidths[0] / 2, tableStartY + 120] });
-doc.text('SUBJECTS', colX[0] + colWidths[0] / 2, tableStartY + 120, { align: 'center', width: 80 });
+doc.font('Helvetica-Bold').fontSize(11);
+doc.rotate(-90, { origin: [colX[0] + colWidths[0] / 2, tableStartY + headerRowHeight + 10] });
+doc.text('SUBJECTS', colX[0] + colWidths[0] / 4, tableStartY + headerRowHeight + 10, { align: 'center', width: colWidths[0] });
 doc.restore();
 
-// Grouped headers
-doc.font('Helvetica-Bold').fontSize(10);
-doc.text('SUMMARY OF CONTINUOUS\nASSESSMENT TEST', colX[1], tableStartY, { width: colX[5] - colX[1], align: 'center' });
-doc.text('SUMMARY OF TERMS WORK', colX[5], tableStartY, { width: colX[9] - colX[5], align: 'center' });
-doc.text('PREVIOUS TERMS SUMMARIES', colX[9], tableStartY, { width: colX[12] - colX[9], align: 'center' });
+// Grouped headers (centered in header area)
+const groupHeaderY = tableStartY;
+doc.font('Helvetica-Bold').fontSize(9);
+doc.text('SUMMARY OF CONTINUOUS\nASSESSMENT TEST', colX[1], groupHeaderY, { width: colX[5] - colX[1], align: 'center' });
+doc.text('SUMMARY OF TERMS WORK', colX[5], groupHeaderY, { width: colX[9] - colX[5], align: 'center' });
+doc.text('PREVIOUS TERMS SUMMARIES', colX[9], groupHeaderY, { width: colX[12] - colX[9], align: 'center' });
 
-// Rotated headers for CA columns
-const headerLabels = [
-  'FIRST SUMMARY\n(1ST C.A. Obtainable = 20%)',
-  'SECOND SUMMARY\n(2ND + 3RD C.A. Obtainable = 20%)',
-  'THIRD SUMMARY\n(3RD C.A. Obtainable = 20%)',
-  'TOTAL (first & second SUMMARY)',
-  'EXAM SCORE (marks Obtainable = 60%)',
-  'TOTAL MARK OBTAINED (Exams & CA) OVER 100%',
-  'GRADE SCORE',
-  'GRADE REMARKS'
-];
-for (let i = 1; i <= 4; i++) {
+// Second header row for CA columns
+const caHeaderY = tableStartY + headerRowHeight;
+doc.font('Helvetica-Bold').fontSize(8);
+doc.text('1ST C.A.', colX[1], caHeaderY, { width: colX[2] - colX[1], align: 'center' });
+doc.font('Helvetica').fontSize(7);
+doc.text('Obtainable = 20%', colX[1], caHeaderY + 10, { width: colX[2] - colX[1], align: 'center' });
+doc.font('Helvetica-Bold').fontSize(8);
+doc.text('2ND C.A.', colX[2], caHeaderY, { width: colX[3] - colX[2], align: 'center' });
+doc.font('Helvetica').fontSize(7);
+doc.text('Obtainable = 10%', colX[2], caHeaderY + 10, { width: colX[3] - colX[2], align: 'center' });
+doc.font('Helvetica-Bold').fontSize(8);
+doc.text('3RD C.A.', colX[3], caHeaderY, { width: colX[4] - colX[3], align: 'center' });
+doc.font('Helvetica').fontSize(7);
+doc.text('Obtainable = 10%', colX[3], caHeaderY + 10, { width: colX[4] - colX[3], align: 'center' });
+doc.font('Helvetica-Bold').fontSize(8);
+doc.text('TOTAL', colX[4], caHeaderY, { width: colX[5] - colX[4], align: 'center' });
+doc.font('Helvetica').fontSize(7);
+doc.text('first, second & third', colX[4], caHeaderY + 10, { width: colX[5] - colX[4], align: 'center' });
+// Rotated header for 'Exams summary'
+doc.save();
+doc.font('Helvetica-Bold').fontSize(10);
+doc.rotate(-90, { origin: [colX[5] + colWidths[2] / 2, tableStartY + headerRowHeight + 10] });
+doc.text('Exams\nsummary', colX[5] + colWidths[4] / 2, tableStartY + headerRowHeight + 10, { width: 60, align: 'center' });
+doc.restore();
+// Horizontal headers for the rest (centered in header area)
+doc.font('Helvetica-Bold').fontSize(8);
+doc.text('100+', colX[6], tableStartY + headerRowHeight + 10, { width: colX[7] - colX[6], align: 'center' });
+doc.text('Percent', colX[6], tableStartY + headerRowHeight + 18, { width: colX[7] - colX[6], align: 'center' });
+doc.text('GRADE SCORE', colX[7], tableStartY + headerRowHeight + 8, { width: colX[8] - colX[7], align: 'center' });
+doc.text('GRADE REMARKS', colX[8], tableStartY + headerRowHeight + 8, { width: colX[9] - colX[8], align: 'center' });
+// Vertical headers for 'PREVIOUS TERMS SUMMARIES'
+const prevHeaders = ['FIRST TERM\nSUMMARY', 'SECOND TERM\nSUMMARY', 'CUMULATIVE\nAVERAGE'];
+for (let i = 9; i <= 11; i++) {
   doc.save();
   doc.font('Helvetica-Bold').fontSize(8);
-  doc.rotate(-60, { origin: [colX[i] + colWidths[i] / 2, tableStartY + 30] });
-  doc.text(headerLabels[i - 1], colX[i] + colWidths[i] / 2, tableStartY + 30, { width: 60, align: 'left' });
+  doc.rotate(-90, { origin: [colX[i] + colWidths[i] / 2, tableStartY + headerRowHeight + 10] });
+  doc.text(prevHeaders[i - 9], colX[i] + colWidths[i] / 2, tableStartY + headerRowHeight + 10, { width: 60, align: 'center' });
   doc.restore();
 }
-// Horizontal headers for the rest
-for (let i = 5; i <= 8; i++) {
-  doc.font('Helvetica-Bold').fontSize(8);
-  doc.text(headerLabels[i - 1], colX[i], tableStartY + 20, { width: colX[i + 1] - colX[i], align: 'center' });
-}
-  // Draw grid lines for main table
-  const numRows = results.length + 2; // +2 for headers
-  for (let i = 0; i < colX.length; i++) {
-    doc.moveTo(colX[i], tableStartY).lineTo(colX[i], tableStartY + rowHeight * (numRows + 1)).stroke();
-  }
-  for (let r = 0; r <= numRows + 1; r++) {
-    doc.moveTo(colX[0], tableStartY + r * rowHeight).lineTo(colX[colX.length - 1], tableStartY + r * rowHeight).stroke();
-  }
   // Fill in subject rows
-  let rowY = tableStartY + rowHeight * 2;
+  let rowY = dataStartY; // Start from the first data row
   doc.font('Helvetica').fontSize(9);
   results.forEach((r, idx) => {
     doc.text(r.subject, colX[0], rowY + 5, { width: colX[1] - colX[0], align: 'center' });
@@ -171,11 +199,11 @@ for (let i = 5; i <= 8; i++) {
   });
   // Draw 'Previous Terms Summaries' table to the right
   const prevX = colX[9];
-  const prevY = tableStartY + rowHeight * 2;
-  doc.font('Helvetica-Bold').fontSize(8);
-  doc.text('FIRST TERM', prevX, prevY, { width: colX[10] - prevX, align: 'center' });
-  doc.text('SECOND TERM', prevX, prevY + rowHeight, { width: colX[10] - prevX, align: 'center' });
-  doc.text('CUMULATIVE AVERAGE', prevX, prevY + rowHeight * 2, { width: colX[10] - prevX, align: 'center' });
+  const prevY = dataStartY; // Start from the first data row
+  // doc.font('Helvetica-Bold').fontSize(8);
+  // doc.text('FIRST TERM', prevX, prevY, { width: colX[10] - prevX, align: 'center' });
+  // doc.text('SECOND TERM', prevX, prevY + rowHeight, { width: colX[10] - prevX, align: 'center' });
+  // doc.text('CUMULATIVE AVERAGE', prevX, prevY + rowHeight * 2, { width: colX[10] - prevX, align: 'center' });
   // Draw grid for previous terms
   for (let r = 0; r < 3; r++) {
     doc.moveTo(prevX, prevY + r * rowHeight).lineTo(colX[11], prevY + r * rowHeight).stroke();
