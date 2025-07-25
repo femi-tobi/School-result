@@ -1,7 +1,11 @@
 import express from 'express';
 import { openDb } from '../db.js';
 import PDFDocument from 'pdfkit';
+import { fileURLToPath } from 'url';
 import path from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
@@ -37,40 +41,68 @@ router.get('/:student_id/result/pdf', async (req, res) => {
   // Add watermark logo before any other drawing
   doc.save();
   doc.opacity(0.10); // Set low opacity for watermark
-  const watermarkWidth = 400; // Adjust as needed
-  const watermarkHeight = 400; // Adjust as needed
+  const watermarkWidth = 300; // Adjust as needed
+  const watermarkHeight = 300; // Adjust as needed
   const centerX = (doc.page.width - watermarkWidth) / 2;
   const centerY = (doc.page.height - watermarkHeight) / 2;
   doc.image(logoPath, centerX, centerY, { width: watermarkWidth, height: watermarkHeight });
   doc.opacity(1); // Reset opacity for normal drawing
   doc.restore();
 
-  // HEADER SECTION
-  // Draw school logo
-  try { doc.image(logoPath, 40, 30, { width: 60 }); } catch {}
+  // Set up border margin and usable width
+  const borderMargin = 20;
   const pageWidth = doc.page.width;
-  // School name
-  doc.fontSize(20).font('Helvetica-Bold').text("BOSOL GOD'S WILL GROUP OF SCHOOLS.", 0, 30, { align: 'center', width: pageWidth });
-  // Address and contact
-  doc.fontSize(10).font('Helvetica').text('46-50, AMOKE ALASELA STREET, ABORI, IVANA-IPAJA, LAGOS STATE', 0, 55, { align: 'center', width: pageWidth });
-  doc.text('Web: www.bosolschools.com  Email: bosolschools1998@gmail.com / bosolschools@yahoo.com  Tel.: 08033280761, 08023056947', 0, 68, { align: 'center', width: pageWidth });
-  // Session title
-  doc.fontSize(13).font('Helvetica-Bold').text('END OF FIRST TERM E-DOSSIER SLIP FOR 2024/2025 ACADEMIC SESSION', 0, 85, { align: 'center', width: pageWidth });
-  // Draw border below session title
-  doc.moveTo(40, 105).lineTo(pageWidth - 40, 105).stroke();
+  const usableWidth = pageWidth - 2 * borderMargin;
+
+  // HEADER SECTION
+  const logoWidth = 40;
+  const logoHeight = 40;
+  const logoY = borderMargin;
+  try { doc.image(logoPath, borderMargin, logoY, { width: logoWidth }); } catch {}
+
+  // Set left margin for text to be to the right of the logo
+  const textLeft = borderMargin + logoWidth + 10;
+  const textWidth = usableWidth - logoWidth - 10;
+  const textY = borderMargin + 5;
+
+  doc.fontSize(20).font('Helvetica-Bold').text(
+    "BOSOL GOD'S WILL GROUP OF SCHOOLS.",
+    textLeft, textY,
+    { align: 'left', width: textWidth }
+  );
+  doc.fontSize(9).font('Helvetica').text(
+    '46-50, AMOKE ALASELA STREET, ABORU, IYANA-IPAJA, LAGOS STATE',
+    textLeft, textY + 22,
+    { align: 'left', width: textWidth }
+  );
+  doc.text(
+    'Web: www.bosolschools.com  Email: bosolschools1998@gmail.com / bosolschools@yahoo.com  Tel.: 08033280761, 08023056947',
+    textLeft, textY + 35,
+    { align: 'left', width: textWidth }
+  );
+  doc.fontSize(13).font('Helvetica-Bold').text(
+    'END OF FIRST TERM E-DOSSIER SLIP FOR 2024/2025 ACADEMIC SESSION',
+    textLeft, textY + 52,
+    { align: 'left', width: textWidth }
+  );
+  doc.moveTo(borderMargin, logoY + logoHeight + 10).lineTo(pageWidth - borderMargin, logoY + logoHeight + 10).stroke();
+
+  // Adjust y for student info section
+  let y = logoY + logoHeight + 20;
 
   // STUDENT INFO SECTION
   // Row 1: Name, Sex, Age, Passport
-  let infoY = 110;
   doc.fontSize(11).font('Helvetica-Bold');
-  doc.rect(40, infoY, pageWidth - 80, 20).stroke();
-  doc.text('NAME:', 45, infoY + 5, { continued: true }).font('Helvetica').text(student.fullname, { continued: true });
+  doc.rect(borderMargin, y, usableWidth, 20).stroke();
+  doc.text('NAME:', borderMargin + 5, y + 5, { continued: true }).font('Helvetica').text(student.fullname, { continued: true });
   doc.font('Helvetica-Bold').text('   SEX:', { continued: true }).font('Helvetica').text('Female', { continued: true }); // Placeholder
   doc.font('Helvetica-Bold').text('   AGE:', { continued: true }).font('Helvetica').text('11years', { continued: true }); // Placeholder
-  // Draw PASSPORT box at far right
-  const passportBoxX = pageWidth - 80 - 50;
-  const passportBoxY = infoY + 2;
-  doc.rect(passportBoxX, passportBoxY, 40, 50).stroke();
+  // Remove the rectangle for the passport
+  // const passportBoxX = borderMargin + usableWidth - 80 - 50;
+  // const passportBoxY = y + 2;
+  // doc.rect(passportBoxX, passportBoxY, 40, 50).stroke();
+  const passportBoxX = borderMargin + usableWidth - 80 - 50;
+  const passportBoxY = y + 2;
   doc.font('Helvetica-Bold').fontSize(9).text('PASSPORT', passportBoxX, passportBoxY + 52, { width: 40, align: 'center' });
   // If student.photo exists, draw image inside box
   if (student.photo) {
@@ -79,25 +111,25 @@ router.get('/:student_id/result/pdf', async (req, res) => {
     } catch {}
   }
   // Row 2: Class, Term, Session
-  infoY += 20;
-  doc.font('Helvetica-Bold').rect(40, infoY, pageWidth - 80, 20).stroke();
-  doc.text('CLASS:', 45, infoY + 5, { continued: true }).font('Helvetica').text(student.class, { continued: true });
+  y += 20;
+  doc.font('Helvetica-Bold').rect(borderMargin, y, usableWidth, 20).stroke();
+  doc.text('CLASS:', borderMargin + 5, y + 5, { continued: true }).font('Helvetica').text(student.class, { continued: true });
   doc.font('Helvetica-Bold').text('   TERM:', { continued: true }).font('Helvetica').text(term, { continued: true });
   doc.font('Helvetica-Bold').text('   SESSION:', { continued: true }).font('Helvetica').text(session);
   // Row 3: Summary stats
-  infoY += 20;
-  doc.font('Helvetica-Bold').rect(40, infoY, pageWidth - 80, 20).stroke();
-  doc.text("TERM'S AVERAGE:", 45, infoY + 5, { continued: true }).font('Helvetica').text('66.60', { continued: true });
+  y += 20;
+  doc.font('Helvetica-Bold').rect(borderMargin, y, usableWidth, 20).stroke();
+  doc.text("TERM'S AVERAGE:", borderMargin + 5, y + 5, { continued: true }).font('Helvetica').text('66.60', { continued: true });
   doc.font('Helvetica-Bold').text('   CUMULATIVE GRADE:', { continued: true }).font('Helvetica').text('B3 (Good)', { continued: true });
   doc.font('Helvetica-Bold').text('   HIGHEST CLASS AVG:', { continued: true }).font('Helvetica').text('82.50', { continued: true });
   doc.font('Helvetica-Bold').text('   LOWEST CLASS AVG:', { continued: true }).font('Helvetica').text('52.75', { continued: true });
   doc.font('Helvetica-Bold').text('   CLASS AVG:', { continued: true }).font('Helvetica').text('66.59', { continued: true });
   doc.font('Helvetica-Bold').text('   SESSION:', { continued: true }).font('Helvetica').text('2024/2025');
   // Move doc.y to below info section
-  doc.y = infoY + 30;
+  doc.y = y + 30;
 
 // === MAIN RESULT TABLE ===
-const margin = 30;
+const margin = borderMargin;
 const colWidths = [
   60, // SUBJECTS
   35, // CA1
@@ -249,8 +281,8 @@ doc.text('GRADE REMARKS', colX[8], caHeaderY, { width: colX[9] - colX[8], align:
 
   // === PROMOTIONAL STATUS & REMARKS SECTION ===
   let remarksY = grandTotalY + 40;
-  const remarksWidth = pageWidth - 180 - colX[0]; // 180 = grading table width + margin
-  const remarksYStart = grandTotalY + 30;
+  const remarksWidth = usableWidth - 160 - colX[0]; // 180 = grading table width + margin
+  const remarksYStart = grandTotalY + 0;
 
 // Promotional Status
 doc.font('Helvetica-Bold').rect(colX[0], remarksY, remarksWidth, 20).stroke();
@@ -294,11 +326,11 @@ const gradingKey = [
 // Position the table to the right of the main content but within page bounds
 // const keyTableX = Math.min(colX[9] + 10, pageWidth - 150); // Ensure it stays within page width
 // const keyTableY = grandTotalY + 10;
-const keyTableX = colX[0] + remarksWidth + 20; // 20px margin between remarks and grading
+const keyTableX = colX[0] + remarksWidth + 24; // 20px margin between remarks and grading
 const keyTableY = remarksYStart;
 const keyColWidths = [40, 80];
 
-doc.font('Helvetica-Bold').fontSize(10).text('KEY TO GRADING', keyTableX, keyTableY, { width: keyColWidths[0] + keyColWidths[1], align: 'center' });
+doc.font('Helvetica-Bold').fontSize(11).text('KEY TO GRADING', keyTableX, keyTableY, { width: keyColWidths[0] + keyColWidths[1], align: 'center' });
 
 // Draw header
 const keyHeaderY = keyTableY + 18;
@@ -319,6 +351,17 @@ gradingKey.forEach(row => {
   doc.text(row[1], keyTableX + keyColWidths[0], keyY + 3, { width: keyColWidths[1], align: 'center' });
   keyY += 18;
 });
+
+// After drawing the KEY TO GRADING box, set contentBottomY
+let contentBottomY = keyY; // keyY is the last y position after KEY TO GRADING
+
+// Draw a general rectangle border around the entire result content
+const borderWidth = doc.page.width - 2 * borderMargin;
+const borderHeight = contentBottomY - borderMargin + 20; // Add 20px padding at the bottom
+doc.save();
+doc.lineWidth(1.7);
+doc.rect(borderMargin, borderMargin, borderWidth, borderHeight).stroke();
+doc.restore();
 
   doc.end();
 });
