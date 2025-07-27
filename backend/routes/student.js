@@ -57,38 +57,19 @@ router.get('/:student_id/result/pdf', async (req, res) => {
   // HEADER SECTION
   const logoWidth = 40;
   const logoHeight = 40;
-  const logoY = borderMargin;
+  const logoY = borderMargin + 5;
   try { doc.image(logoPath, borderMargin, logoY, { width: logoWidth }); } catch {}
 
-  // Set left margin for text to be to the right of the logo
-  const textLeft = borderMargin + logoWidth + 10;
-  const textWidth = usableWidth - logoWidth - 10;
-  const textY = borderMargin + 5;
-
-  doc.fontSize(20).font('Helvetica-Bold').text(
-    "BOSOL GOD'S WILL GROUP OF SCHOOLS.",
-    textLeft, textY,
-    { align: 'left', width: textWidth }
-  );
-  doc.fontSize(9).font('Helvetica').text(
-    '46-50, AMOKE ALASELA STREET, ABORU, IYANA-IPAJA, LAGOS STATE',
-    textLeft, textY + 22,
-    { align: 'left', width: textWidth }
-  );
-  doc.text(
-    'Web: www.bosolschools.com  Email: bosolschools1998@gmail.com / bosolschools@yahoo.com  Tel.: 08033280761, 08023056947',
-    textLeft, textY + 35,
-    { align: 'left', width: textWidth }
-  );
-  doc.fontSize(13).font('Helvetica-Bold').text(
-    'END OF FIRST TERM E-DOSSIER SLIP FOR 2024/2025 ACADEMIC SESSION',
-    textLeft, textY + 52,
-    { align: 'left', width: textWidth }
-  );
-  doc.moveTo(borderMargin, logoY + logoHeight + 10).lineTo(pageWidth - borderMargin, logoY + logoHeight + 10).stroke();
+  // Calculate y-position for header text so it doesn't overlap the logo
+  const headerTextY = logoY + 1;
+  doc.fontSize(20).font('Helvetica-Bold').text("BOSOL GOD'S WILL GROUP OF SCHOOLS.", borderMargin, headerTextY, { align: 'center', width: usableWidth });
+  doc.fontSize(9).font('Helvetica').text('46-50, AMOKE ALASELA STREET, ABORU, IYANA-IPAJA, LAGOS STATE', borderMargin, headerTextY + 25, { align: 'center', width: usableWidth });
+  doc.text('Web: www.bosolschools.com  Email: bosolschools1998@gmail.com / bosolschools@yahoo.com  Tel.: 08033280761, 08023056947', borderMargin, headerTextY + 38, { align: 'center', width: usableWidth });
+  doc.fontSize(13).font('Helvetica-Bold').text('END OF FIRST TERM E-DOSSIER SLIP FOR 2024/2025 ACADEMIC SESSION', borderMargin, headerTextY + 55, { align: 'center', width: usableWidth });
+  doc.moveTo(borderMargin, headerTextY + 75).lineTo(pageWidth - borderMargin, headerTextY + 75).stroke();
 
   // Adjust y for student info section
-  let y = logoY + logoHeight + 20;
+  let y = headerTextY + 80;
 
   // STUDENT INFO SECTION
   // Row 1: Name, Sex, Age, Passport
