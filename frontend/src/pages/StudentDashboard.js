@@ -47,8 +47,15 @@ export default function StudentDashboard() {
       .catch(() => setTeacherRemark(''));
   }, [term, session]);
 
-  const total = results.reduce((sum, r) => sum + Number(r.score), 0);
-  const average = results.length ? (total / results.length).toFixed(1) : 0;
+  // Calculate grand total and average based on all components (CA1+CA2+CA3+Exam)
+  const grandTotal = results.reduce((sum, r) => {
+    const ca1 = Number(r.ca1) || 0;
+    const ca2 = Number(r.ca2) || 0;
+    const ca3 = Number(r.ca3) || 0;
+    const exam = Number(r.score) || 0;
+    return sum + ca1 + ca2 + ca3 + exam;
+  }, 0);
+  const average = results.length ? (grandTotal / results.length).toFixed(1) : 0;
   const position = 5; // Placeholder
   const remark = average >= 70 ? 'Excellent' : average >= 50 ? 'Good' : 'Needs Improvement';
 
@@ -103,7 +110,7 @@ export default function StudentDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-green-100 rounded shadow p-4 text-center">
             <div className="text-green-700 text-xs">Total</div>
-            <div className="text-2xl font-bold text-green-900">{total}</div>
+            <div className="text-2xl font-bold text-green-900">{grandTotal}</div>
           </div>
           <div className="bg-green-100 rounded shadow p-4 text-center">
             <div className="text-green-700 text-xs">Average</div>

@@ -97,14 +97,67 @@ router.get('/:student_id/result/pdf', async (req, res) => {
   doc.text('CLASS:', borderMargin + 5, y + 5, { continued: true }).font('Helvetica').text(student.class, { continued: true });
   doc.font('Helvetica-Bold').text('   TERM:', { continued: true }).font('Helvetica').text(term, { continued: true });
   doc.font('Helvetica-Bold').text('   SESSION:', { continued: true }).font('Helvetica').text(session);
+  // Calculate grand total and term average ONCE for use throughout the PDF
+  const grandTotal = results.reduce((sum, r) => {
+    const ca1 = Number(r.ca1) || 0;
+    const ca2 = Number(r.ca2) || 0;
+    const ca3 = Number(r.ca3) || 0;
+    const exam = Number(r.score) || 0;
+    return sum + ca1 + ca2 + ca3 + exam;
+  }, 0);
+  const termAverage = results.length ? (grandTotal / results.length).toFixed(2) : '0.00';
+  // Calculate real-time cumulative grade based on gradingKey
+  function getCumulativeGrade(average) {
+    const avg = Number(average);
+    if (avg >= 75) return 'A1 (Excellent)';
+    if (avg >= 70) return 'B2 (Very Good)';
+    if (avg >= 65) return 'B3 (Good)';
+    if (avg >= 60) return 'C6 (Credit)';
+    if (avg >= 55) return 'D7 (Pass)';
+    if (avg >= 50) return 'E8 (Fair)';
+    return 'F9 (Fail)';
+  }
+  const cumulativeGrade = getCumulativeGrade(termAverage);
+  // Calculate class average for the class, term, and session
+  let classAverage = '0.00';
+  try {
+    const classResults = await db.all(
+      'SELECT student_id FROM students WHERE class = ?', [student.class]
+    );
+    let sumOfAverages = 0;
+    let studentCount = 0;
+    for (const s of classResults) {
+      const sResults = await db.all(
+        'SELECT * FROM results WHERE student_id = ? AND term = ? AND session = ?',
+        [s.student_id, term, session]
+      );
+      if (sResults.length > 0) {
+        const sGrandTotal = sResults.reduce((sum, r) => {
+          const ca1 = Number(r.ca1) || 0;
+          const ca2 = Number(r.ca2) || 0;
+          const ca3 = Number(r.ca3) || 0;
+          const exam = Number(r.score) || 0;
+          return sum + ca1 + ca2 + ca3 + exam;
+        }, 0);
+        const sAverage = sResults.length ? (sGrandTotal / sResults.length) : 0;
+        sumOfAverages += sAverage;
+        studentCount++;
+      }
+    }
+    if (studentCount > 0) {
+      classAverage = (sumOfAverages / studentCount).toFixed(2);
+    }
+  } catch (e) {
+    classAverage = '0.00';
+  }
   // Row 3: Summary stats
   y += 20;
   doc.font('Helvetica-Bold').rect(borderMargin, y, usableWidth, 20).stroke();
-  doc.text("TERM'S AVERAGE:", borderMargin + 5, y + 5, { continued: true }).font('Helvetica').text('66.60', { continued: true });
-  doc.font('Helvetica-Bold').text('   CUMULATIVE GRADE:', { continued: true }).font('Helvetica').text('B3 (Good)', { continued: true });
+  doc.text("TERM'S AVERAGE:", borderMargin + 5, y + 5, { continued: true }).font('Helvetica').text(termAverage, { continued: true });
+  doc.font('Helvetica-Bold').text('   CUMULATIVE GRADE:', { continued: true }).font('Helvetica').text(cumulativeGrade, { continued: true });
   doc.font('Helvetica-Bold').text('   HIGHEST CLASS AVG:', { continued: true }).font('Helvetica').text('82.50', { continued: true });
   doc.font('Helvetica-Bold').text('   LOWEST CLASS AVG:', { continued: true }).font('Helvetica').text('52.75', { continued: true });
-  doc.font('Helvetica-Bold').text('   CLASS AVG:', { continued: true }).font('Helvetica').text('66.59', { continued: true });
+  doc.font('Helvetica-Bold').text('   CLASS AVG:', { continued: true }).font('Helvetica').text(classAverage, { continued: true });
   doc.font('Helvetica-Bold').text('   SESSION:', { continued: true }).font('Helvetica').text('2024/2025');
   // Move doc.y to below info section
   doc.y = y + 30;
@@ -257,7 +310,7 @@ doc.text('GRADE REMARKS', colX[8], caHeaderY, { width: colX[9] - colX[8], align:
   doc.font('Helvetica-Bold').fontSize(14);
   doc.rect(colX[0], grandTotalY, colX[9] - colX[0], 30).stroke();
   doc.text('Grand Total=', colX[0] + 10, grandTotalY + 7, { continued: true });
-  doc.font('Helvetica-Bold').fillColor('black').text(` ${results.reduce((sum, r) => sum + Number(r.score), 0)}`, { align: 'center' });
+  doc.font('Helvetica-Bold').fillColor('black').text(` ${grandTotal}`, { align: 'center' });
   doc.font('Helvetica').fillColor('black');
 
   // === PROMOTIONAL STATUS & REMARKS SECTION ===
