@@ -30,7 +30,7 @@ export default function AdminDashboard() {
 
   // Add/Edit Students state
   const [selectedClass, setSelectedClass] = useState('');
-  const [students, setStudents] = useState([]);
+  const [studentsList, setStudentsList] = useState([]);
   const [studentForm, setStudentForm] = useState({ fullname: '', student_id: '', password: '', editId: null, photo: null });
   const [studentMsg, setStudentMsg] = useState('');
 
@@ -60,6 +60,22 @@ export default function AdminDashboard() {
   const [pendingStudents, setPendingStudents] = useState([]);
   const [promotionMsg, setPromotionMsg] = useState('');
 
+  // Add state for modal
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyModalStudent, setHistoryModalStudent] = useState(null);
+  const [historyModalResults, setHistoryModalResults] = useState([]);
+
+  // Group results by student_id for history panel (move this to top-level in the component)
+  const grouped = {};
+  results.forEach(r => {
+    if (!grouped[r.student_id]) grouped[r.student_id] = { ...r, results: [] };
+    grouped[r.student_id].results.push(r);
+  });
+  const historyStudents = Object.values(grouped).map(s => ({
+    ...s,
+    classes: Array.from(new Set(s.results.map(r => r.class))).join(', ')
+  }));
+
   // Fetch classes on mount
   useEffect(() => {
     axios.get('http://localhost:5000/api/classes')
@@ -71,10 +87,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (selectedClass) {
       axios.get(`http://localhost:5000/api/admin/students?class=${selectedClass}`)
-        .then(res => setStudents(res.data))
-        .catch(() => setStudents([]));
+        .then(res => setStudentsList(res.data))
+        .catch(() => setStudentsList([]));
     } else {
-      setStudents([]);
+      setStudentsList([]);
     }
   }, [selectedClass]);
 
@@ -242,7 +258,7 @@ export default function AdminDashboard() {
       setStudentForm({ fullname: '', student_id: '', password: '', editId: null, photo: null });
       // Refresh student list
       const res = await axios.get(`http://localhost:5000/api/admin/students?class=${selectedClass}`);
-      setStudents(res.data);
+      setStudentsList(res.data);
     } catch (err) {
       setStudentMsg('Error adding student. Student ID must be unique.');
     }
@@ -266,7 +282,7 @@ export default function AdminDashboard() {
       setStudentForm({ fullname: '', student_id: '', password: '', editId: null, photo: null });
       // Refresh student list
       const res = await axios.get(`http://localhost:5000/api/admin/students?class=${selectedClass}`);
-      setStudents(res.data);
+      setStudentsList(res.data);
     } catch (err) {
       setStudentMsg('Error updating student.');
     }
@@ -423,7 +439,7 @@ export default function AdminDashboard() {
         // Optionally refresh students list
         if (selectedClass) {
           const refreshed = await axios.get(`http://localhost:5000/api/admin/students?class=${selectedClass}`);
-          setStudents(refreshed.data);
+          setStudentsList(refreshed.data);
         }
       } else {
         setPromotionMsg(res.data.reason || 'Not promoted.');
@@ -478,7 +494,7 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {students.map(s => (
+                    {studentsList.map(s => (
                       <tr key={s.id} className="border-b">
                         <td className="py-2 px-4">{s.fullname}</td>
                         <td className="py-2 px-4">{s.student_id}</td>
@@ -563,14 +579,14 @@ export default function AdminDashboard() {
             </form>
             {sessionMsg && <div className="mb-2 text-green-700">{sessionMsg}</div>}
             <div className="overflow-x-auto">
-            <ul className="divide-y">
-              {sessions.map(s => (
-                <li key={s.id} className="flex items-center justify-between py-2">
-                  <span>{s.name}</span>
-                  <button className="text-red-600 hover:underline" onClick={() => handleDeleteSession(s.id)}>Delete</button>
-                </li>
-              ))}
-            </ul>
+              <ul className="divide-y">
+                {sessions.map(s => (
+                  <li key={s.id || s.name || s} className="flex items-center justify-between py-2">
+                    <span>{s.name || s}</span>
+                    <button className="text-red-600 hover:underline" onClick={() => handleDeleteSession(s.id || s.name || s)}>Delete</button>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         );
@@ -605,50 +621,73 @@ export default function AdminDashboard() {
               <input type="text" name="term" value={historyFilters.term} onChange={handleHistoryFilterChange} placeholder="Term" className="border p-2 rounded w-full md:w-24" />
               <input type="text" name="session" value={historyFilters.session} onChange={handleHistoryFilterChange} placeholder="Session" className="border p-2 rounded w-full md:w-24" />
             </div>
-            {remark && (
-              <div className="mb-4 p-3 bg-green-50 rounded border border-green-200">
-                <strong>Teacher's Remark:</strong>
-                <div>{remark}</div>
+            <div className="overflow-x-auto">
+              <table className="min-w-[600px] bg-green-50 rounded">
+                <thead className="bg-green-200">
+                  <tr>
+                    <th className="py-2 px-4 text-left text-green-900">Student ID</th>
+                    <th className="py-2 px-4 text-left text-green-900">Class(es)</th>
+                    <th className="py-2 px-4 text-left text-green-900">See More</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyStudents.map(s => (
+                    <tr key={s.student_id} className="border-b">
+                      <td className="py-2 px-4">{s.student_id}</td>
+                      <td className="py-2 px-4">{s.classes}</td>
+                      <td className="py-2 px-4">
+                        <button className="text-blue-600 hover:underline" onClick={() => { setHistoryModalStudent(s); setHistoryModalResults(s.results); setHistoryModalOpen(true); }}>See More</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Modal for student results */}
+            {historyModalOpen && (
+              <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+                <div className="bg-white rounded shadow-lg p-6 max-w-2xl w-full relative">
+                  <button className="absolute top-2 right-2 text-2xl" onClick={() => setHistoryModalOpen(false)}>&times;</button>
+                  <h4 className="font-bold mb-4 text-green-700">Results for {historyModalStudent.student_id}</h4>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full bg-green-50 rounded">
+                      <thead className="bg-green-200">
+                        <tr>
+                          <th className="py-2 px-4 text-left text-green-900">Subject</th>
+                          <th className="py-2 px-4 text-left text-green-900">CA1</th>
+                          <th className="py-2 px-4 text-left text-green-900">CA2</th>
+                          <th className="py-2 px-4 text-left text-green-900">CA3</th>
+                          <th className="py-2 px-4 text-left text-green-900">Exam</th>
+                          <th className="py-2 px-4 text-left text-green-900">Total</th>
+                          <th className="py-2 px-4 text-left text-green-900">Grade</th>
+                          <th className="py-2 px-4 text-left text-green-900">Remark</th>
+                          <th className="py-2 px-4 text-left text-green-900">Term</th>
+                          <th className="py-2 px-4 text-left text-green-900">Session</th>
+                          <th className="py-2 px-4 text-left text-green-900">Class</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {historyModalResults.map((r, idx) => (
+                          <tr key={r.id || idx} className="border-b">
+                            <td className="py-2 px-4">{r.subject}</td>
+                            <td className="py-2 px-4">{r.ca1}</td>
+                            <td className="py-2 px-4">{r.ca2}</td>
+                            <td className="py-2 px-4">{r.ca3}</td>
+                            <td className="py-2 px-4">{r.score}</td>
+                            <td className="py-2 px-4">{(Number(r.ca1 || 0) + Number(r.ca2 || 0) + Number(r.ca3 || 0) + Number(r.score || 0))}</td>
+                            <td className="py-2 px-4">{r.grade}</td>
+                            <td className="py-2 px-4">{r.remark}</td>
+                            <td className="py-2 px-4">{r.term}</td>
+                            <td className="py-2 px-4">{r.session}</td>
+                            <td className="py-2 px-4">{r.class}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             )}
-            <div className="overflow-x-auto">
-            <table className="min-w-[600px] bg-green-50 rounded">
-              <thead className="bg-green-200">
-                <tr>
-                  <th className="py-2 px-4 text-left text-green-900">Student ID</th>
-                  <th className="py-2 px-4 text-left text-green-900">Class</th>
-                  <th className="py-2 px-4 text-left text-green-900">Subject</th>
-                  <th className="py-2 px-4 text-left text-green-900">CA1</th>
-                  <th className="py-2 px-4 text-left text-green-900">CA2</th>
-                  <th className="py-2 px-4 text-left text-green-900">CA3</th>
-                  <th className="py-2 px-4 text-left text-green-900">Exam</th>
-                  <th className="py-2 px-4 text-left text-green-900">Total</th>
-                  <th className="py-2 px-4 text-left text-green-900">Grade</th>
-                  <th className="py-2 px-4 text-left text-green-900">Remark</th>
-                  <th className="py-2 px-4 text-left text-green-900">Term</th>
-                  <th className="py-2 px-4 text-left text-green-900">Session</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.map(r => (
-                  <tr key={r.id} className="border-b">
-                    <td className="py-2 px-4">{r.student_id}</td>
-                    <td className="py-2 px-4">{r.class}</td>
-                    <td className="py-2 px-4">{r.subject}</td>
-                    <td className="py-2 px-4">{r.ca1}</td>
-                    <td className="py-2 px-4">{r.ca2}</td>
-                    <td className="py-2 px-4">{r.ca3}</td>
-                    <td className="py-2 px-4">{r.score}</td>
-                    <td className="py-2 px-4">{(Number(r.ca1 || 0) + Number(r.ca2 || 0) + Number(r.ca3 || 0) + Number(r.score || 0))}</td>
-                    <td className="py-2 px-4">{r.grade}</td>
-                    <td className="py-2 px-4">{r.remark}</td>
-                    <td className="py-2 px-4">{r.term}</td>
-                    <td className="py-2 px-4">{r.session}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
           </div>
         );
       case 'manageTeachers':
