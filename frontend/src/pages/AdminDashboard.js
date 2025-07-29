@@ -59,7 +59,6 @@ export default function AdminDashboard() {
   // Add after other useState imports
   const [pendingStudents, setPendingStudents] = useState([]);
   const [promotionMsg, setPromotionMsg] = useState('');
-  const [selectedPromotionSession, setSelectedPromotionSession] = useState('');
 
   // Fetch classes on mount
   useEffect(() => {
@@ -97,14 +96,12 @@ export default function AdminDashboard() {
     }
   }, [activePanel]);
 
-  // Fetch sessions on mount or when panel is active
+  // Fetch sessions on mount
   useEffect(() => {
-    if (activePanel === 'sessions') {
-      axios.get('http://localhost:5000/api/sessions')
-        .then(res => setSessions(res.data))
-        .catch(() => setSessions([]));
-    }
-  }, [activePanel]);
+    axios.get('http://localhost:5000/api/sessions')
+      .then(res => setSessions(res.data))
+      .catch(() => setSessions([]));
+  }, []);
 
   // Fetch results for history panel
   useEffect(() => {
@@ -413,11 +410,12 @@ export default function AdminDashboard() {
 
   // Handler for promoting a student
   const handlePromoteStudent = async (student_id) => {
-    if (!selectedPromotionSession) {
-      setPromotionMsg('Please select a session for promotion.');
+    if (!sessions.length) {
+      setPromotionMsg('No session available.');
       return;
     }
-    const session = selectedPromotionSession;
+    // Use the latest session by default
+    const session = sessions[sessions.length - 1].name || sessions[sessions.length - 1];
     try {
       const res = await axios.post(`http://localhost:5000/api/admin/students/${student_id}/promote`, { session });
       if (res.data.promoted) {
@@ -470,15 +468,6 @@ export default function AdminDashboard() {
                   <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold w-full md:w-auto">{studentForm.editId ? 'Update' : 'Add'}</button>
                   {studentMsg && <span className="text-green-700 ml-2">{studentMsg}</span>}
                 </form>
-                <div className="mb-2">
-                  <label className="mr-2 font-semibold">Promotion Session:</label>
-                  <select value={selectedPromotionSession} onChange={e => setSelectedPromotionSession(e.target.value)} className="border p-1 rounded">
-                    <option value="">Select Session</option>
-                    {sessions.map(s => (
-                      <option key={s.id || s.name || s} value={s.name || s}>{s.name || s}</option>
-                    ))}
-                  </select>
-                </div>
                 <div className="overflow-x-auto">
                 <table className="min-w-[600px] bg-green-50 rounded">
                   <thead className="bg-green-200">
