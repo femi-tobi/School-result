@@ -117,4 +117,74 @@ router.post('/approve-student-results', async (req, res) => {
   }
 });
 
+// === PROMOTION LOGIC ===
+router.post('/students/:student_id/promote', async (req, res) => {
+  const { student_id } = req.params;
+  const { session } = req.body;
+  const db = await openDb();
+
+  // Define the 3 terms and required subjects
+  const terms = ['First', 'Second', 'Third'];
+  const requiredSubjects = ['English', 'Mathematics'];
+
+  // 1. Check if student has approved results for all 3 terms in the session
+  let allTermsCompleted = true;
+  for (const term of terms) {
+    const results = await db.all(
+      'SELECT * FROM results WHERE student_id = ? AND term = ? AND session = ? AND approved = 1',
+      [student_id, term, session]
+    );
+    if (results.length === 0) {
+      allTermsCompleted = false;
+      break;
+    }
+  }
+  if (!allTermsCompleted) {
+    return res.json({ promoted: false, reason: 'Student has not completed all 3 terms with approved results.' });
+  }
+
+  // 2. Check if student passed English and Maths in all 3 terms
+  let passedAllRequired = true;
+  for (const term of terms) {
+    for (const subject of requiredSubjects) {
+      const result = await db.get(
+        'SELECT * FROM results WHERE student_id = ? AND term = ? AND session = ? AND subject = ? AND approved = 1',
+        [student_id, term, session, subject]
+      );
+      if (!result) {
+        passedAllRequired = false;
+        break;
+      }
+      // Pass if grade is not F9 or score >= 50
+      const score = Number(result.score) || 0;
+      if ((result.grade && result.grade === 'F9') || score < 50) {
+        passedAllRequired = false;
+        break;
+      }
+    }
+    if (!passedAllRequired) break;
+  }
+  if (!passedAllRequired) {
+    return res.json({ promoted: false, reason: 'Student did not pass English and/or Mathematics in all terms.' });
+  }
+
+  // 3. Promote student to next class
+  // Get current class
+  const student = await db.get('SELECT * FROM students WHERE student_id = ?', [student_id]);
+  if (!student) {
+    return res.status(404).json({ promoted: false, reason: 'Student not found.' });
+  }
+  const classOrder = [
+    'JSS1', 'JSS2', 'JSS3',
+    'SS1', 'SS2', 'SS3'
+  ];
+  const currentClassIndex = classOrder.indexOf(student.class);
+  if (currentClassIndex === -1 || currentClassIndex === classOrder.length - 1) {
+    return res.json({ promoted: false, reason: 'Student is in the last class or class is unrecognized.' });
+  }
+  const nextClass = classOrder[currentClassIndex + 1];
+  await db.run('UPDATE students SET class = ? WHERE student_id = ?', [nextClass, student_id]);
+  res.json({ promoted: true, newClass: nextClass });
+});
+
 export default router; 

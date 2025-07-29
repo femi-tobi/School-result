@@ -120,12 +120,15 @@ router.get('/:student_id/result/pdf', async (req, res) => {
   const cumulativeGrade = getCumulativeGrade(termAverage);
   // Calculate class average for the class, term, and session
   let classAverage = '0.00';
+  let highestClassAvg = '0.00';
+  let lowestClassAvg = '0.00';
   try {
     const classResults = await db.all(
       'SELECT student_id FROM students WHERE class = ?', [student.class]
     );
     let sumOfAverages = 0;
     let studentCount = 0;
+    let studentAverages = [];
     for (const s of classResults) {
       const sResults = await db.all(
         'SELECT * FROM results WHERE student_id = ? AND term = ? AND session = ?',
@@ -141,22 +144,27 @@ router.get('/:student_id/result/pdf', async (req, res) => {
         }, 0);
         const sAverage = sResults.length ? (sGrandTotal / sResults.length) : 0;
         sumOfAverages += sAverage;
+        studentAverages.push(sAverage);
         studentCount++;
       }
     }
     if (studentCount > 0) {
       classAverage = (sumOfAverages / studentCount).toFixed(2);
+      highestClassAvg = Math.max(...studentAverages).toFixed(2);
+      lowestClassAvg = Math.min(...studentAverages).toFixed(2);
     }
   } catch (e) {
     classAverage = '0.00';
+    highestClassAvg = '0.00';
+    lowestClassAvg = '0.00';
   }
   // Row 3: Summary stats
   y += 20;
   doc.font('Helvetica-Bold').rect(borderMargin, y, usableWidth, 20).stroke();
   doc.text("TERM'S AVERAGE:", borderMargin + 5, y + 5, { continued: true }).font('Helvetica').text(termAverage, { continued: true });
   doc.font('Helvetica-Bold').text('   CUMULATIVE GRADE:', { continued: true }).font('Helvetica').text(cumulativeGrade, { continued: true });
-  doc.font('Helvetica-Bold').text('   HIGHEST CLASS AVG:', { continued: true }).font('Helvetica').text('82.50', { continued: true });
-  doc.font('Helvetica-Bold').text('   LOWEST CLASS AVG:', { continued: true }).font('Helvetica').text('52.75', { continued: true });
+  doc.font('Helvetica-Bold').text('   HIGHEST CLASS AVG:', { continued: true }).font('Helvetica').text(highestClassAvg, { continued: true });
+  doc.font('Helvetica-Bold').text('   LOWEST CLASS AVG:', { continued: true }).font('Helvetica').text(lowestClassAvg, { continued: true });
   doc.font('Helvetica-Bold').text('   CLASS AVG:', { continued: true }).font('Helvetica').text(classAverage, { continued: true });
   doc.font('Helvetica-Bold').text('   SESSION:', { continued: true }).font('Helvetica').text('2024/2025');
   // Move doc.y to below info section
