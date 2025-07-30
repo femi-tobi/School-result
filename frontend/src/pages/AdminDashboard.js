@@ -114,9 +114,9 @@ export default function AdminDashboard() {
 
   // Fetch sessions on mount
   useEffect(() => {
-    axios.get('http://localhost:5000/api/sessions')
-      .then(res => setSessions(res.data))
-      .catch(() => setSessions([]));
+      axios.get('http://localhost:5000/api/sessions')
+        .then(res => setSessions(res.data))
+        .catch(() => setSessions([]));
   }, []);
 
   // Fetch results for history panel
@@ -579,14 +579,14 @@ export default function AdminDashboard() {
             </form>
             {sessionMsg && <div className="mb-2 text-green-700">{sessionMsg}</div>}
             <div className="overflow-x-auto">
-              <ul className="divide-y">
-                {sessions.map(s => (
+            <ul className="divide-y">
+              {sessions.map(s => (
                   <li key={s.id || s.name || s} className="flex items-center justify-between py-2">
                     <span>{s.name || s}</span>
                     <button className="text-red-600 hover:underline" onClick={() => handleDeleteSession(s.id || s.name || s)}>Delete</button>
-                  </li>
-                ))}
-              </ul>
+                </li>
+              ))}
+            </ul>
             </div>
           </div>
         );
@@ -622,10 +622,10 @@ export default function AdminDashboard() {
               <input type="text" name="session" value={historyFilters.session} onChange={handleHistoryFilterChange} placeholder="Session" className="border p-2 rounded w-full md:w-24" />
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-[600px] bg-green-50 rounded">
-                <thead className="bg-green-200">
-                  <tr>
-                    <th className="py-2 px-4 text-left text-green-900">Student ID</th>
+            <table className="min-w-[600px] bg-green-50 rounded">
+              <thead className="bg-green-200">
+                <tr>
+                  <th className="py-2 px-4 text-left text-green-900">Student ID</th>
                     <th className="py-2 px-4 text-left text-green-900">Class(es)</th>
                     <th className="py-2 px-4 text-left text-green-900">See More</th>
                   </tr>
@@ -653,38 +653,38 @@ export default function AdminDashboard() {
                     <table className="min-w-full bg-green-50 rounded">
                       <thead className="bg-green-200">
                         <tr>
-                          <th className="py-2 px-4 text-left text-green-900">Subject</th>
-                          <th className="py-2 px-4 text-left text-green-900">CA1</th>
-                          <th className="py-2 px-4 text-left text-green-900">CA2</th>
-                          <th className="py-2 px-4 text-left text-green-900">CA3</th>
-                          <th className="py-2 px-4 text-left text-green-900">Exam</th>
-                          <th className="py-2 px-4 text-left text-green-900">Total</th>
-                          <th className="py-2 px-4 text-left text-green-900">Grade</th>
-                          <th className="py-2 px-4 text-left text-green-900">Remark</th>
-                          <th className="py-2 px-4 text-left text-green-900">Term</th>
-                          <th className="py-2 px-4 text-left text-green-900">Session</th>
+                  <th className="py-2 px-4 text-left text-green-900">Subject</th>
+                  <th className="py-2 px-4 text-left text-green-900">CA1</th>
+                  <th className="py-2 px-4 text-left text-green-900">CA2</th>
+                  <th className="py-2 px-4 text-left text-green-900">CA3</th>
+                  <th className="py-2 px-4 text-left text-green-900">Exam</th>
+                  <th className="py-2 px-4 text-left text-green-900">Total</th>
+                  <th className="py-2 px-4 text-left text-green-900">Grade</th>
+                  <th className="py-2 px-4 text-left text-green-900">Remark</th>
+                  <th className="py-2 px-4 text-left text-green-900">Term</th>
+                  <th className="py-2 px-4 text-left text-green-900">Session</th>
                           <th className="py-2 px-4 text-left text-green-900">Class</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                </tr>
+              </thead>
+              <tbody>
                         {historyModalResults.map((r, idx) => (
                           <tr key={r.id || idx} className="border-b">
-                            <td className="py-2 px-4">{r.subject}</td>
-                            <td className="py-2 px-4">{r.ca1}</td>
-                            <td className="py-2 px-4">{r.ca2}</td>
-                            <td className="py-2 px-4">{r.ca3}</td>
-                            <td className="py-2 px-4">{r.score}</td>
-                            <td className="py-2 px-4">{(Number(r.ca1 || 0) + Number(r.ca2 || 0) + Number(r.ca3 || 0) + Number(r.score || 0))}</td>
-                            <td className="py-2 px-4">{r.grade}</td>
-                            <td className="py-2 px-4">{r.remark}</td>
-                            <td className="py-2 px-4">{r.term}</td>
-                            <td className="py-2 px-4">{r.session}</td>
+                    <td className="py-2 px-4">{r.subject}</td>
+                    <td className="py-2 px-4">{r.ca1}</td>
+                    <td className="py-2 px-4">{r.ca2}</td>
+                    <td className="py-2 px-4">{r.ca3}</td>
+                    <td className="py-2 px-4">{r.score}</td>
+                    <td className="py-2 px-4">{(Number(r.ca1 || 0) + Number(r.ca2 || 0) + Number(r.ca3 || 0) + Number(r.score || 0))}</td>
+                    <td className="py-2 px-4">{r.grade}</td>
+                    <td className="py-2 px-4">{r.remark}</td>
+                    <td className="py-2 px-4">{r.term}</td>
+                    <td className="py-2 px-4">{r.session}</td>
                             <td className="py-2 px-4">{r.class}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            </div>
                 </div>
               </div>
             )}
